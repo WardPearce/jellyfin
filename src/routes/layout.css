@@ -1,3 +1,58 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+	--color-jellyfin-purple: #9b59b6;
+	--color-jellyfin-purple-light: #bb86fc;
+	--color-jellyfin-purple-dark: #7c3aed;
+	--color-jellyfin-primary: #00a4dc;
+	--color-jellyfin-secondary: #9b59b6;
+}
+
+:root {
+	color-scheme: dark;
+	--accent-400: hsl(234 80% 74%);
+	--accent-500: hsl(234 70% 64%);
+	--accent-600: hsl(234 60% 54%);
+	--accent-700: hsl(234 50% 44%);
+	--accent-ring: hsl(234 70% 64% / 0.5);
+	--glass-bg-opacity: 0.8;
+	--glass-border-opacity: 0.8;
+	--glass-blur: blur(12px);
+}
+
+body {
+	@apply bg-zinc-950 text-zinc-100 antialiased;
+}
+
+.glass {
+	background-color: hsl(240 6% 10% / var(--glass-bg-opacity));
+	border-color: hsl(240 6% 15% / var(--glass-border-opacity));
+	backdrop-filter: var(--glass-blur);
+}
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background: #3f3f46;
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: #52525b;
+}
+
+media-player {
+	--media-brand: var(--accent-600);
+	--media-focus-ring-color: var(--accent-500);
+}
