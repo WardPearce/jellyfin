@@ -36,7 +36,8 @@
 		subtitle,
 		onBack,
 		subtitles = [],
-		thumbnails = null
+		thumbnails = null,
+		startTime = 0
 	}: {
 		src: string;
 		poster?: string;
@@ -45,10 +46,12 @@
 		onBack?: () => void;
 		subtitles?: SubtitleTrack[];
 		thumbnails?: ThumbnailSrc;
+		startTime?: number;
 	} = $props();
 
 	let playerEl: HTMLElement | null = $state(null);
 	let headerVisible = $state(true);
+	let posterVisible = $state(true);
 
 	onMount(() => {
 		if (!playerEl) return;
@@ -68,12 +71,20 @@
 			headerVisible = (e as CustomEvent).detail;
 		};
 
+		// Hide the poster once playback actually starts (guards against the poster
+		// staying visible forever when autoplay is blocked by the browser).
+		const onPlay = () => {
+			posterVisible = false;
+		};
+
 		playerEl.addEventListener('provider-change', onProviderChange);
 		playerEl.addEventListener('controls-change', onControlsChange);
+		playerEl.addEventListener('play', onPlay);
 
 		return () => {
 			playerEl?.removeEventListener('provider-change', onProviderChange);
 			playerEl?.removeEventListener('controls-change', onControlsChange);
+			playerEl?.removeEventListener('play', onPlay);
 		};
 	});
 
@@ -81,7 +92,7 @@
 		if (!playerEl || !subtitles.length) return;
 
 		const player = playerEl as unknown as MediaPlayerElement;
-		const existing = player.textTracks?.size ?? 0;
+		const existing = player.textTracks?.length ?? 0;
 		if (existing >= subtitles.length) return;
 
 		for (const track of subtitles) {
@@ -95,6 +106,11 @@
 			});
 		}
 	});
+
+	$effect(() => {
+		if (!playerEl || !startTime) return;
+		(playerEl as unknown as MediaPlayerElement).currentTime = startTime;
+	});
 </script>
 
 <media-player
@@ -105,14 +121,14 @@
 	crossorigin
 	playsinline
 	logLevel="error"
-	class="vds-player w-full"
+	autoplay
+	class="vds-player aspect-auto h-full w-full"
 >
 	<media-provider></media-provider>
-	<media-captions></media-captions>
-
-	{#if thumbnails}
-		<media-slider-thumbnail class="vds-slider-thumbnail" src={thumbnails}></media-slider-thumbnail>
+	{#if posterVisible && poster}
+		<media-poster src={poster} alt={title}></media-poster>
 	{/if}
+	<media-captions></media-captions>
 
 	<div class="vds-overlay-header" class:vds-hidden={!headerVisible}>
 		{#if onBack}
@@ -137,7 +153,7 @@
 		{/if}
 	</div>
 
-	<media-video-layout></media-video-layout>
+	<media-video-layout {thumbnails}></media-video-layout>
 </media-player>
 
 <style>
@@ -208,5 +224,67 @@
 	:global(.vds-overlay-title p) {
 		margin: 0;
 		line-height: 1.3;
+	}
+
+	/* -------- Theming overrides for the default layout -------- */
+
+	/* Slider thumb & track sizing */
+	:global(media-player .vds-time-slider) {
+		--media-slider-track-height: 4px;
+	}
+
+	:global(media-player .vds-volume-slider) {
+		--media-slider-track-height: 4px;
+		--media-slider-thumb-size: 12px;
+	}
+
+	/* Round control buttons */
+	:global(media-player .vds-button) {
+		border-radius: 9999px;
+	}
+
+	/* Poster / large center play button uses the brand accent */
+	:global(media-player .vds-default-play-button) {
+		border-radius: 9999px;
+		border: 1px solid rgba(255, 255, 255, 0.25);
+		background: color-mix(in srgb, var(--media-brand, #00a4dc) 25%, rgba(0, 0, 0, 0.55));
+		backdrop-filter: blur(4px);
+	}
+
+	/* Poster fills the entire player (stretches to cover the full screen) */
+	:global(media-player media-poster),
+	:global(media-player .vds-poster),
+	:global(media-player media-poster img),
+	:global(media-player .vds-poster img) {
+		position: absolute;
+		inset: 0;
+		top: 0;
+		transform: none;
+		width: 100%;
+		height: 100%;
+	}
+
+	:global(media-player .vds-poster img),
+	:global(media-player media-poster img) {
+		object-fit: cover;
+	}
+
+	/* Bottom scrim gradient */
+	:global(media-player .vds-scrim) {
+		background: linear-gradient(
+			to top,
+			rgba(0, 0, 0, 0.75),
+			rgba(0, 0, 0, 0.35) 40%,
+			transparent 80%
+		) !important;
+	}
+
+	/* Control buttons: subtle hover bubble matching the accent */
+	:global(media-player .vds-button:hover) {
+		background-color: rgba(255, 255, 255, 0.14);
+	}
+
+	:global(media-player .vds-button[data-pressed]) {
+		color: var(--media-brand, #00a4dc);
 	}
 </style>

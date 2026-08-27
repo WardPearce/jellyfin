@@ -9,6 +9,7 @@
 	} from '$lib/jellyfin/api';
 	import MediaPlayer from '$lib/components/MediaPlayer.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -32,6 +33,7 @@
 		}>
 	>([]);
 	let thumbnails = $state<ThumbnailSrc>(null);
+	let startTime = $state(0);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
@@ -78,6 +80,11 @@
 				const { getItemImageUrl } = await import('$lib/jellyfin/client');
 				posterUrl = getItemImageUrl(fetchedItem.Id, 'Primary', { maxWidth: 400 }) ?? '';
 			}
+
+			const resumeSeconds = (fetchedItem.UserData?.PlaybackPositionTicks ?? 0) / 10_000_000;
+			if (resumeSeconds >= 5) {
+				startTime = resumeSeconds;
+			}
 		} catch (e: unknown) {
 			error = (e as Error)?.message ?? 'Failed to load media';
 		} finally {
@@ -87,7 +94,7 @@
 
 	function handleBack() {
 		if (item?.Id) {
-			goto(resolve('/item/[id]', { id: item.Id }));
+			goto(resolve(`/item/${item.Id}`));
 		} else {
 			goto(resolve('/'));
 		}
@@ -98,24 +105,18 @@
 	<title>Watch {item?.Name ?? ''} - Jellyfin</title>
 </svelte:head>
 
-<div class="flex flex-col p-4">
+<div class="page-enter flex flex-col">
 	{#if loading}
-		<div class="flex min-h-[50vh] items-center justify-center">
+		<div class="flex min-h-screen items-center justify-center">
 			<Spinner size="lg" />
 		</div>
 	{:else if error}
-		<div class="flex min-h-[50vh] flex-col items-center justify-center gap-4">
+		<div class="flex min-h-screen flex-col items-center justify-center gap-4">
 			<p class="text-red-400">{error}</p>
-			<button
-				type="button"
-				onclick={handleBack}
-				class="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
-			>
-				Go Back
-			</button>
+			<Button variant="outline" onclick={handleBack}>Go Back</Button>
 		</div>
 	{:else if streamUrl}
-		<div class="aspect-video w-full overflow-hidden rounded-lg bg-black">
+		<div class="h-screen w-full bg-black">
 			<MediaPlayer
 				src={streamUrl}
 				poster={posterUrl}
@@ -126,6 +127,7 @@
 				onBack={handleBack}
 				subtitles={subtitleTracks}
 				{thumbnails}
+				{startTime}
 			/>
 		</div>
 	{/if}

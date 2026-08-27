@@ -6,6 +6,10 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import Chip from '$lib/components/ui/Chip.svelte';
+	import SectionHeader from '$lib/components/ui/SectionHeader.svelte';
+	import EpisodeList from '$lib/components/EpisodeList.svelte';
+	import MediaCard from '$lib/components/MediaCard.svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import type { BaseItemDto } from '@jellyfin/sdk/lib/generated-client/models/base-item-dto';
@@ -44,6 +48,9 @@
 	const isSeason = $derived(item?.Type === 'Season');
 	const isEpisode = $derived(!!item?.SeriesId);
 
+	const singleSeason = $derived(isSeries && seasons.length === 1 ? seasons[0] : null);
+	const showingEpisodes = $derived(isSeason || singleSeason !== null);
+
 	$effect(() => {
 		const itemId = page.params.id;
 		if (!itemId) return;
@@ -68,7 +75,23 @@
 				if (fetchedItem?.Type === 'Series' && fetchedItem.Id) {
 					loadingSeasons = true;
 					try {
-						seasons = await getSeasons(fetchedItem.Id, auth.user?.Id);
+						const fetchedSeasons = await getSeasons(fetchedItem.Id, auth.user?.Id);
+						seasons = fetchedSeasons;
+
+						const onlySeason = fetchedSeasons.length === 1 ? fetchedSeasons[0] : null;
+						if (onlySeason) {
+							loadingEpisodes = true;
+							try {
+								episodes = await getEpisodes(
+									fetchedItem.Id,
+									auth.user?.Id,
+									onlySeason.Id,
+									onlySeason.IndexNumber ?? undefined
+								);
+							} finally {
+								loadingEpisodes = false;
+							}
+						}
 					} finally {
 						loadingSeasons = false;
 					}
@@ -119,12 +142,6 @@
 	function crewJobLabel(people: BaseItemPerson[]): string {
 		return people.map((p) => p.Name ?? 'Unknown').join(', ');
 	}
-
-	function formatEpisodeNumber(episode: BaseItemDto): string {
-		const s = String(episode.ParentIndexNumber ?? '?').padStart(2, '0');
-		const e = String(episode.IndexNumber ?? '?').padStart(2, '0');
-		return `S${s}E${e}`;
-	}
 </script>
 
 <svelte:head>
@@ -142,8 +159,12 @@
 {:else if item}
 	<div class="relative min-h-screen">
 		{#if backdropUrl}
-			<div class="pointer-events-none absolute inset-0">
-				<img src={backdropUrl} alt="" class="h-full w-full object-cover object-top" />
+			<div class="pointer-events-none absolute inset-x-0 top-0 h-[36rem]">
+				<img
+					src={backdropUrl}
+					alt=""
+					class="h-full w-full animate-ken-burns object-cover object-top"
+				/>
 				<div
 					class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/70 to-zinc-950/20"
 				></div>
@@ -153,34 +174,35 @@
 			</div>
 		{/if}
 
-		<div class="relative z-10 space-y-10 px-4 pt-24 lg:px-6">
+		<div class="relative z-10 space-y-12 px-4 pt-24 lg:px-6">
 			{#if isEpisode}
 				<div>
 					<a
-						href={item.SeriesId ? resolve('/item/[id]', { id: item.SeriesId }) : undefined}
-						class="inline-flex items-center gap-2 text-sm text-zinc-400 transition-colors hover:text-white"
+						href={item.SeriesId ? resolve(`/item/${item.SeriesId}`) : undefined}
+						class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300 backdrop-blur-md transition-all hover:border-white/20 hover:text-white"
 					>
 						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
 								stroke-width="2"
-								d="M15 19l-7-7 7-7"
+								d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
 							/>
 						</svg>
 						{item.SeriesName ?? 'Back to series'}
 					</a>
 				</div>
 			{/if}
+
 			<div class="flex flex-col gap-8 lg:flex-row">
 				<div class="flex-shrink-0">
 					<div
-						class="w-48 overflow-hidden rounded-xl shadow-2xl transition-transform duration-200 hover:scale-[1.03] sm:w-56 lg:w-64"
+						class="w-48 overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-black/50 transition-transform duration-300 hover:scale-[1.03] sm:w-56 lg:w-64"
 					>
 						<Image
 							src={getItemImageUrl(item.Id!, 'Primary', { maxWidth: 300 })}
 							alt={item.Name ?? ''}
-							class="bg-zinc-800"
+							class="bg-gradient-to-br from-zinc-800 to-zinc-900"
 							aspectRatio="2/3"
 						/>
 					</div>
@@ -188,28 +210,24 @@
 
 				<div class="flex-1 space-y-5 pt-2">
 					<div class="space-y-3">
-						<h1 class="text-4xl font-bold text-white lg:text-5xl">{item.Name}</h1>
+						<h1 class="text-4xl font-bold tracking-tight text-white lg:text-5xl">{item.Name}</h1>
 
 						{#if item.Taglines?.length}
-							<p class="text-lg text-zinc-300 italic">{item.Taglines[0]}</p>
+							<p class="text-lg text-zinc-300 italic">“{item.Taglines[0]}”</p>
 						{/if}
 
 						<div class="flex flex-wrap items-center gap-2.5 text-base text-zinc-300">
 							{#if item.ProductionYear}
 								<span>{item.ProductionYear}</span>
-								<span class="text-zinc-600">|</span>
 							{/if}
 							{#if item.RunTimeTicks}
 								<span>{formatRuntime(item.RunTimeTicks)}</span>
-								<span class="text-zinc-600">|</span>
 							{/if}
 							{#if item.OfficialRating}
-								<span class="rounded border border-zinc-600 px-2 py-0.5 text-sm text-zinc-300">
-									{item.OfficialRating}
-								</span>
+								<Chip variant="outline">{item.OfficialRating}</Chip>
 							{/if}
 							{#if item.CommunityRating}
-								<span class="flex items-center gap-1 text-lg text-yellow-400">
+								<span class="flex items-center gap-1 text-lg font-medium text-amber-400">
 									<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
 										<path
 											d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
@@ -217,24 +235,18 @@
 									</svg>
 									{item.CommunityRating.toFixed(1)}
 								</span>
-								<span class="text-zinc-600">|</span>
 							{/if}
 							{#if item.CriticRating}
-								<span class="flex items-center gap-1">
-									{#if item.CriticRating >= 60}
-										<svg class="h-4 w-4 text-red-500" viewBox="0 0 24 24" fill="currentColor">
-											<path
-												d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-											/>
-										</svg>
-									{:else}
-										<svg class="h-4 w-4 text-green-500" viewBox="0 0 24 24" fill="currentColor">
-											<path
-												d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
-											/>
-										</svg>
-									{/if}
-									<span class="text-sm text-zinc-300">{formatCriticRating(item.CriticRating)}</span>
+								<span
+									class="flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm font-medium {item.CriticRating >=
+									60
+										? 'bg-red-500/15 text-red-400'
+										: 'bg-emerald-500/15 text-emerald-400'}"
+								>
+									<svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+										<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+									</svg>
+									{formatCriticRating(item.CriticRating)}
 								</span>
 							{/if}
 						</div>
@@ -243,18 +255,16 @@
 					{#if item.Genres?.length}
 						<div class="flex flex-wrap gap-2">
 							{#each item.Genres as genre (genre)}
-								<span class="rounded-full bg-white/10 px-3 py-1 text-sm text-zinc-200">
-									{genre}
-								</span>
+								<Chip>{genre}</Chip>
 							{/each}
 						</div>
 					{/if}
 
 					{#if hasCrew}
-						<div class="space-y-1 text-sm">
+						<div class="space-y-1.5 text-sm">
 							{#if directors.length > 0}
 								<div>
-									<span class="text-zinc-400">
+									<span class="text-zinc-500">
 										{directors.length === 1 ? 'Director' : 'Directors'}:
 									</span>
 									<span class="text-zinc-200">{crewJobLabel(directors)}</span>
@@ -262,7 +272,7 @@
 							{/if}
 							{#if writers.length > 0}
 								<div>
-									<span class="text-zinc-400">
+									<span class="text-zinc-500">
 										{writers.length === 1 ? 'Writer' : 'Writers'}:
 									</span>
 									<span class="text-zinc-200">{crewJobLabel(writers)}</span>
@@ -270,7 +280,7 @@
 							{/if}
 							{#if producers.length > 0}
 								<div>
-									<span class="text-zinc-400">
+									<span class="text-zinc-500">
 										{producers.length === 1 ? 'Producer' : 'Producers'}:
 									</span>
 									<span class="text-zinc-200">{crewJobLabel(producers)}</span>
@@ -278,7 +288,7 @@
 							{/if}
 							{#if item.Studios?.length}
 								<div>
-									<span class="text-zinc-400">Studios:</span>
+									<span class="text-zinc-500">Studios:</span>
 									<span class="text-zinc-200">{item.Studios.map((s) => s.Name).join(', ')}</span>
 								</div>
 							{/if}
@@ -294,12 +304,12 @@
 							<h3 class="text-lg font-semibold text-white">About</h3>
 							<p class="text-sm leading-relaxed text-zinc-300">{item.Overview}</p>
 							{#if item.OriginalTitle && item.OriginalTitle !== item.Name}
-								<p class="text-xs text-zinc-400">
+								<p class="text-xs text-zinc-500">
 									Original title: <span class="text-zinc-200">{item.OriginalTitle}</span>
 								</p>
 							{/if}
 							{#if item.ProductionLocations?.length}
-								<p class="text-xs text-zinc-400">
+								<p class="text-xs text-zinc-500">
 									Countries: <span class="text-zinc-200">{item.ProductionLocations.join(', ')}</span
 									>
 								</p>
@@ -307,8 +317,8 @@
 						</div>
 					{/if}
 
-					<div class="flex gap-3 pt-2">
-						<Button href={resolve('/watch/[id]', { id: item.Id ?? '' })} size="lg">
+					<div class="flex flex-wrap gap-3 pt-2">
+						<Button href={resolve(`/watch/${item.Id ?? ''}`)} size="lg">
 							<svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
 								<path
 									fill-rule="evenodd"
@@ -319,11 +329,7 @@
 							Play
 						</Button>
 						{#if item.Type !== 'Series'}
-							<Button
-								variant="outline"
-								href={resolve('/watch/[id]', { id: item.Id ?? '' })}
-								size="lg"
-							>
+							<Button variant="outline" href={resolve(`/watch/${item.Id ?? ''}`)} size="lg">
 								<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path
 										stroke-linecap="round"
@@ -339,104 +345,52 @@
 				</div>
 			</div>
 
-			{#if isSeries && loadingSeasons}
-				<div class="space-y-4">
-					<h2 class="text-2xl font-bold text-white">Seasons</h2>
+			{#if isSeries && !singleSeason && loadingSeasons}
+				<section class="space-y-4">
+					<SectionHeader title="Seasons" />
 					<Spinner />
-				</div>
-			{:else if isSeries && seasons.length > 0}
-				<div class="space-y-4">
-					<h2 class="text-2xl font-bold text-white">Seasons</h2>
-					<div class="flex flex-wrap gap-4">
+				</section>
+			{:else if isSeries && !singleSeason && seasons.length > 0}
+				<section class="space-y-5">
+					<SectionHeader title="Seasons" />
+					<div
+						class="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8"
+					>
 						{#each seasons as season (season.Id ?? season.Name)}
-							<a
-								href={season.Id ? resolve('/item/[id]', { id: season.Id }) : undefined}
-								class="group w-[18rem] flex-shrink-0"
-							>
-								<div
-									class="h-[28rem] w-[18rem] overflow-hidden rounded-xl bg-black shadow-lg transition-transform duration-200 group-hover:scale-[1.03]"
-								>
-									<Image
-										src={season.Id
-											? getItemImageUrl(season.Id, 'Primary', { maxWidth: 600 })
-											: undefined}
-										alt={season.Name ?? ''}
-									/>
-								</div>
-								<p class="mt-2 text-base font-medium text-zinc-300 group-hover:text-white">
-									{season.Name}
-								</p>
-								{#if season.ChildCount}
-									<p class="text-sm text-zinc-500">
-										{season.ChildCount}
-										{season.ChildCount === 1 ? 'episode' : 'episodes'}
-									</p>
-								{/if}
-							</a>
+							<MediaCard
+								item={season}
+								href={season.Id ? resolve(`/item/${season.Id}`) : undefined}
+								aspectRatio="portrait"
+							/>
 						{/each}
 					</div>
-				</div>
+				</section>
 			{/if}
 
-			{#if isSeason && loadingEpisodes}
-				<div class="space-y-4">
-					<h2 class="text-2xl font-bold text-white">Episodes</h2>
+			{#if showingEpisodes && loadingEpisodes}
+				<section class="space-y-4">
+					<SectionHeader title="Episodes" />
 					<Spinner />
-				</div>
-			{:else if isSeason && episodes.length > 0}
-				<div class="space-y-4">
-					<h2 class="text-2xl font-bold text-white">Episodes</h2>
-					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-						{#each episodes as episode (episode.Id ?? episode.Name)}
-							<a
-								href={episode.Id ? resolve('/watch/[id]', { id: episode.Id }) : undefined}
-								class="group flex gap-3 rounded-xl border border-zinc-700/40 bg-zinc-800/40 p-3 transition-colors hover:bg-zinc-700/30"
-							>
-								<div
-									class="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-black shadow-sm transition-transform duration-200 group-hover:scale-[1.03]"
-								>
-									<Image
-										src={episode.Id
-											? getItemImageUrl(episode.Id, 'Primary', { maxWidth: 300 })
-											: undefined}
-										alt={episode.Name ?? ''}
-										aspectRatio="1/1"
-									/>
-								</div>
-								<div class="min-w-0 flex-1 py-0.5">
-									<span class="text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
-										{formatEpisodeNumber(episode)}
-									</span>
-									<p
-										class="mt-0.5 truncate text-sm font-medium text-zinc-200 group-hover:text-white"
-									>
-										{episode.Name}
-									</p>
-									{#if episode.Overview}
-										<p class="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-400">
-											{episode.Overview}
-										</p>
-									{/if}
-									{#if episode.RunTimeTicks}
-										<span class="mt-1 inline-block text-[11px] text-zinc-500">
-											{formatRuntime(episode.RunTimeTicks)}
-										</span>
-									{/if}
-								</div>
-							</a>
-						{/each}
-					</div>
-				</div>
+				</section>
+			{:else if showingEpisodes && episodes.length > 0}
+				<section class="space-y-5">
+					<SectionHeader title="Episodes">
+						{#snippet action()}
+							<span class="text-xs text-zinc-500">{episodes.length} total</span>
+						{/snippet}
+					</SectionHeader>
+					<EpisodeList items={episodes} />
+				</section>
 			{/if}
 
 			{#if cast.length > 0}
-				<div class="space-y-4">
-					<h2 class="text-xl font-semibold text-white">Cast</h2>
-					<div class="flex gap-4 overflow-x-auto pb-4">
+				<section class="space-y-5">
+					<SectionHeader title="Cast" />
+					<div class="flex gap-3 overflow-x-auto pb-4">
 						{#each cast as person (person.Id ?? person.Name)}
 							<a
-								href={person.Id ? resolve('/item/[id]', { id: person.Id }) : undefined}
-								class="group flex w-28 flex-shrink-0 flex-col items-center gap-2.5 rounded-lg p-2 transition-colors hover:bg-zinc-800/40"
+								href={person.Id ? resolve(`/item/${person.Id}`) : undefined}
+								class="group flex w-32 flex-shrink-0 flex-col items-center gap-2.5 rounded-2xl border border-transparent p-3 transition-all duration-200 hover:border-white/10 hover:bg-white/5"
 							>
 								<div class="transition-transform duration-200 group-hover:scale-105">
 									<Avatar src={personImageUrl(person)} alt={person.Name ?? ''} class="h-20 w-20" />
@@ -446,13 +400,13 @@
 										{person.Name}
 									</p>
 									{#if person.Role}
-										<p class="truncate text-xs text-zinc-400">{person.Role}</p>
+										<p class="truncate text-xs text-zinc-500">{person.Role}</p>
 									{/if}
 								</div>
 							</a>
 						{/each}
 					</div>
-				</div>
+				</section>
 			{/if}
 		</div>
 	</div>

@@ -7,14 +7,18 @@
 		loading = false,
 		prefix = 'item',
 		layout = 'grid',
-		aspectRatio = 'auto'
+		aspectRatio = 'auto',
+		linkTarget = 'item'
 	}: {
 		items: BaseItemDto[];
 		loading?: boolean;
 		prefix?: string;
 		layout?: 'grid' | 'row';
 		aspectRatio?: 'square' | 'portrait' | 'auto';
+		linkTarget?: 'item' | 'watch';
 	} = $props();
+
+	const hrefPrefix = $derived(linkTarget === 'watch' ? '/watch/' : '/item/');
 
 	const rowWidth = $derived(
 		aspectRatio === 'square' ? 'w-64' : aspectRatio === 'portrait' ? 'w-40' : 'w-64'
@@ -49,8 +53,9 @@
 	});
 
 	$effect(() => {
-		items;
-		scrollEl;
+		const el = scrollEl;
+		const count = items.length;
+		if (!el || !count) return;
 		requestAnimationFrame(updateScrollState);
 	});
 </script>
@@ -120,7 +125,7 @@
 		<div bind:this={scrollEl} class="flex gap-2 overflow-hidden pb-2">
 			{#each items as item (item.Id ?? `${prefix}-${item.Name}`)}
 				<div class="flex-shrink-0 {rowWidth}">
-					<MediaCard {item} href={item.Id ? `/item/${item.Id}` : undefined} {aspectRatio} />
+					<MediaCard {item} href={item.Id ? `${hrefPrefix}${item.Id}` : undefined} {aspectRatio} />
 				</div>
 			{/each}
 		</div>
@@ -140,7 +145,7 @@
 {:else}
 	<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
 		{#each items as item (item.Id ?? `${prefix}-${item.Name}`)}
-			<MediaCard {item} href={item.Id ? `/item/${item.Id}` : undefined} {aspectRatio} />
+			<MediaCard {item} href={item.Id ? `${hrefPrefix}${item.Id}` : undefined} {aspectRatio} />
 		{/each}
 	</div>
 {/if}

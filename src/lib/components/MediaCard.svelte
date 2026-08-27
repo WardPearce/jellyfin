@@ -56,26 +56,39 @@
 	class="group relative {isCompact ? '' : 'flex flex-col gap-1.5'}"
 >
 	<div
-		class="relative overflow-hidden transition-transform duration-200 group-hover:scale-[1.03] {isCompact
+		class="relative overflow-hidden transition-all duration-300 {isCompact
 			? ''
-			: 'rounded-md bg-zinc-800 shadow-lg'}"
+			: 'rounded-xl bg-gradient-to-b from-zinc-800 to-zinc-900 shadow-lg shadow-black/30'}"
 	>
 		<Image
 			src={libItem.primaryImageUrl}
 			alt={libItem.name}
 			aspectRatio={imageAspectRatio()}
-			class={isCompact ? '' : 'bg-zinc-800'}
+			class={isCompact ? '' : 'bg-transparent'}
+			fallbackClass="bg-gradient-to-br from-zinc-800 to-zinc-900"
 		/>
+
+		<div
+			class="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+		>
+			<span
+				class="flex h-12 w-12 scale-75 items-center justify-center rounded-full bg-[var(--accent-600)] text-white shadow-xl shadow-black/50 transition-transform duration-300 group-hover:scale-100"
+			>
+				<svg class="h-6 w-6 translate-x-0.5" fill="currentColor" viewBox="0 0 20 20">
+					<path d="M6 4.5v11l9-5.5-9-5.5z" />
+				</svg>
+			</span>
+		</div>
 
 		{#if showProgress}
 			<div class="absolute right-0 bottom-0 left-0">
-				<Progress value={libItem.playedPercentage} class="h-1 rounded-none" />
+				<Progress value={libItem.playedPercentage} class="h-1.5 rounded-none" />
 			</div>
 		{/if}
 
 		{#if libItem.officialRating}
 			<span
-				class="absolute top-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white"
+				class="absolute top-1.5 right-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm"
 			>
 				{libItem.officialRating}
 			</span>
@@ -83,7 +96,7 @@
 
 		{#if libItem.communityRating}
 			<span
-				class="absolute top-1 left-1 flex items-center gap-0.5 rounded bg-black/70 px-1.5 py-0.5 text-xs text-yellow-400"
+				class="absolute top-1.5 left-1.5 flex items-center gap-0.5 rounded-md bg-black/70 px-1.5 py-0.5 text-xs text-amber-400 backdrop-blur-sm"
 			>
 				<svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
 					<path
@@ -96,7 +109,7 @@
 
 		{#if libItem.type === 'Series'}
 			<div
-				class="absolute right-1 bottom-1 rounded bg-[var(--accent-600)] px-1.5 py-0.5 text-xs font-medium text-white"
+				class="absolute right-1.5 bottom-1.5 rounded-md bg-[var(--accent-600)] px-1.5 py-0.5 text-xs font-medium text-white shadow-lg shadow-black/30"
 			>
 				Series
 			</div>
@@ -104,8 +117,10 @@
 	</div>
 
 	{#if !isCompact}
-		<div class="flex flex-col">
-			<span class="truncate text-sm font-medium text-zinc-100 group-hover:text-white">
+		<div class="flex flex-col px-0.5">
+			<span
+				class="truncate text-sm font-medium text-zinc-100 transition-colors group-hover:text-white"
+			>
 				{displayTitle()}
 			</span>
 			{#if subtitle()}

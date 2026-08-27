@@ -17,11 +17,13 @@
 	} = $props();
 
 	const variants: Record<string, string> = {
-		default: 'bg-[var(--accent-600)] text-white hover:bg-[var(--accent-700)]',
+		default:
+			'bg-[var(--accent-600)] text-white shadow-lg shadow-black/25 hover:bg-[var(--accent-700)]',
 		destructive: 'bg-red-600 text-white hover:bg-red-700',
 		ghost: 'hover:bg-zinc-800 hover:text-white text-zinc-400',
 		link: 'text-zinc-400 underline-offset-4 hover:underline hover:text-white',
-		outline: 'border border-zinc-600 hover:border-zinc-500 hover:text-white text-zinc-300'
+		outline:
+			'border border-zinc-600 hover:border-zinc-500 hover:text-white text-zinc-300 hover:bg-white/5'
 	};
 
 	const sizes: Record<string, string> = {
@@ -32,7 +34,7 @@
 	};
 
 	const classes = $derived(
-		`inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`
+		`inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`
 	);
 </script>
 

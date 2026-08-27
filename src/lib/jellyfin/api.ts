@@ -15,7 +15,7 @@ import type { MediaSourceInfo } from '@jellyfin/sdk/lib/generated-client/models/
 import type { PlaybackInfoDto } from '@jellyfin/sdk/lib/generated-client/models/playback-info-dto';
 import type { DeviceProfile } from '@jellyfin/sdk/lib/generated-client/models/device-profile';
 import type { BaseItemDto } from '@jellyfin/sdk/lib/generated-client/models/base-item-dto';
-import type { ThumbnailStoryboard } from 'vidstack';
+import type { ThumbnailImageInit } from 'vidstack';
 
 const WEB_DEVICE_PROFILE: DeviceProfile = {
 	Name: 'Jellyfin Web',
@@ -63,7 +63,7 @@ const WEB_DEVICE_PROFILE: DeviceProfile = {
 	]
 };
 
-function buildWebPlaybackInfo(itemId: string): PlaybackInfoDto {
+function buildWebPlaybackInfo(_itemId: string): PlaybackInfoDto {
 	return {
 		DeviceProfile: WEB_DEVICE_PROFILE,
 		EnableDirectPlay: true,
@@ -341,21 +341,23 @@ export async function searchItems(
 export function getTrickplayStoryboard(
 	item: BaseItemDto,
 	mediaSourceId: string
-): ThumbnailStoryboard | null {
+): ThumbnailImageInit[] | null {
 	const trickplay = item.Trickplay;
 	if (!trickplay) return null;
 
-	const widths = Object.keys(trickplay)
+	const sourceMap = mediaSourceId
+		? (trickplay[mediaSourceId] ?? Object.values(trickplay)[0])
+		: Object.values(trickplay)[0];
+	if (!sourceMap) return null;
+
+	const widths = Object.keys(sourceMap)
 		.map(Number)
-		.filter((w) => !Number.isNaN(w))
+		.filter((w) => !Number.isNaN(w) && w > 0)
 		.sort((a, b) => a - b);
 	if (!widths.length) return null;
 
-	const width = widths[0];
-	const sourceMap = trickplay[String(width)];
-	if (!sourceMap) return null;
-
-	const info = sourceMap[mediaSourceId] ?? Object.values(sourceMap)[0];
+	const width = widths.find((w) => w >= 320) ?? widths[widths.length - 1];
+	const info = sourceMap[String(width)];
 	if (!info || !info.TileWidth || !info.TileHeight || !info.Interval || !info.ThumbnailCount) {
 		return null;
 	}
@@ -372,33 +374,36 @@ export function getTrickplayStoryboard(
 	const baseUrl = getApi().basePath;
 	const token = getAccessToken();
 
-	const tiles: { startTime: number; x: number; y: number }[] = [];
+	const images: ThumbnailImageInit[] = [];
 	let tileIndex = 0;
 
 	for (let sheet = 0; sheet < sheetCount; sheet++) {
 		const tilesInSheet = Math.min(tilesPerSheet, totalTiles - tileIndex);
 
+		const params = new URLSearchParams();
+		if (mediaSourceId) params.set('MediaSourceId', mediaSourceId);
+		if (token) params.set('api_key', token);
+		const query = params.toString();
+		const tileUrl = `${baseUrl}/Videos/${item.Id}/Trickplay/${width}/${sheet}.jpg${query ? `?${query}` : ''}`;
+
 		for (let pos = 0; pos < tilesInSheet; pos++) {
 			const col = pos % tileW;
 			const row = Math.floor(pos / tileW);
-			tiles.push({
+			images.push({
+				url: tileUrl,
 				startTime: tileIndex * interval,
-				x: col * thumbW,
-				y: row * thumbH
+				width: thumbW,
+				height: thumbH,
+				coords: {
+					x: col * thumbW,
+					y: row * thumbH
+				}
 			});
 			tileIndex++;
 		}
 	}
 
-	let tileUrl = `${baseUrl}/Videos/${item.Id}/trickplay/${width}x${width}/tile0.jpg`;
-	if (token) tileUrl += `?api_key=${token}`;
-
-	return {
-		url: tileUrl,
-		tileWidth: thumbW,
-		tileHeight: thumbH,
-		tiles
-	};
+	return images;
 }
 
 export function getSubtitleTracks(

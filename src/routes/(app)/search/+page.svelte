@@ -2,14 +2,18 @@
 	import { getAuth } from '$lib/state/index.svelte';
 	import { searchItems, BaseItemKind } from '$lib/jellyfin';
 	import MediaGrid from '$lib/components/MediaGrid.svelte';
+	import SectionHeader from '$lib/components/ui/SectionHeader.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
 	import { untrack } from 'svelte';
 	import type { BaseItemDto } from '@jellyfin/sdk/lib/generated-client/models/base-item-dto';
 
 	const auth = getAuth();
 
+	let inputEl = $state<HTMLInputElement>();
 	let query = $state(page.url.searchParams.get('q') ?? '');
 	let loading = $state(false);
 	let results = $state<Record<string, BaseItemDto[]>>({});
@@ -24,6 +28,25 @@
 	];
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function isTyping(el: EventTarget | null) {
+		const tag = (el as HTMLElement | null)?.tagName;
+		return tag === 'INPUT' || tag === 'TEXTAREA';
+	}
+
+	onMount(() => {
+		const onKeydown = (e: KeyboardEvent) => {
+			if (e.key === '/' && !isTyping(e.target)) {
+				e.preventDefault();
+				inputEl?.focus();
+			}
+			if (e.key === 'Escape' && inputEl && document.activeElement === inputEl) {
+				inputEl.blur();
+			}
+		};
+		window.addEventListener('keydown', onKeydown);
+		return () => window.removeEventListener('keydown', onKeydown);
+	});
 
 	function onInput(e: Event) {
 		const val = (e.target as HTMLInputElement).value;
@@ -81,6 +104,10 @@
 
 	const hasResults = $derived(Object.keys(results).length > 0);
 
+	const totalResults = $derived(
+		Object.values(results).reduce((sum, items) => sum + items.length, 0)
+	);
+
 	$effect(() => {
 		const q = untrack(() => page.url.searchParams.get('q'));
 		if (q && q !== query) {
@@ -94,11 +121,11 @@
 	<title>Search - Jellyfin</title>
 </svelte:head>
 
-<div class="space-y-6 px-4 pt-4 lg:px-6">
+<div class="space-y-8 px-4 pt-24 lg:px-6">
 	<div class="mx-auto max-w-2xl">
-		<div class="relative">
+		<div class="group relative">
 			<svg
-				class="absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-zinc-500"
+				class="absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-zinc-500 transition-colors group-focus-within:text-[var(--accent-400)]"
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"
@@ -111,48 +138,48 @@
 				/>
 			</svg>
 			<input
+				bind:this={inputEl}
 				type="text"
 				value={query}
 				oninput={onInput}
 				placeholder="Search movies, shows, music..."
-				class="w-full rounded-xl border border-zinc-700 bg-zinc-900 py-3 pr-4 pl-12 text-zinc-100 placeholder-zinc-500 transition-colors outline-none focus:border-[var(--accent-500)] focus:ring-1 focus:ring-[var(--accent-500)]"
+				class="w-full rounded-2xl border border-white/10 bg-white/5 py-3.5 pr-24 pl-12 text-zinc-100 shadow-lg shadow-black/20 backdrop-blur-md transition-all duration-200 placeholder:text-zinc-500 focus:border-[var(--accent-500)] focus:bg-white/[0.07] focus:ring-2 focus:ring-[var(--accent-ring)] focus:outline-none"
 			/>
+			<kbd
+				class="absolute top-1/2 right-4 hidden -translate-y-1/2 rounded-md border border-white/10 bg-white/10 px-2 py-1 text-xs font-medium text-zinc-400 sm:inline-block"
+			>
+				/
+			</kbd>
 		</div>
 	</div>
 
 	{#if loading}
 		<Spinner size="lg" />
 	{:else if !query.trim()}
-		<div class="flex flex-col items-center justify-center py-24">
-			<svg class="h-16 w-16 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="1"
-					d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-				/>
-			</svg>
-			<h2 class="mt-4 text-lg font-medium text-zinc-400">Search your library</h2>
-			<p class="mt-1 text-sm text-zinc-500">Find movies, TV shows, music, and more.</p>
-		</div>
+		<EmptyState
+			icon="search"
+			title="Search your library"
+			description="Find movies, TV shows, music, and more. Press / to jump here."
+		/>
 	{:else if !hasResults}
-		<div class="flex flex-col items-center justify-center py-24">
-			<svg class="h-16 w-16 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="1"
-					d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 002.25 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
-				/>
-			</svg>
-			<h2 class="mt-4 text-lg font-medium text-zinc-400">No results found</h2>
-			<p class="mt-1 text-sm text-zinc-500">Try a different search term.</p>
-		</div>
+		<EmptyState
+			icon="search"
+			title="No results found"
+			description="Nothing matched “{query.trim()}”. Try a different search term."
+		/>
 	{:else}
+		<div class="mx-auto max-w-2xl">
+			<p class="text-sm text-zinc-400">
+				<span class="font-semibold text-white">{totalResults}</span>
+				{totalResults === 1 ? 'result' : 'results'} for “{query.trim()}”
+			</p>
+		</div>
+
 		{#each categories as cat (cat.key)}
 			{#if results[cat.key] && results[cat.key].length > 0}
-				<section>
-					<h2 class="mb-4 text-xl font-semibold text-white">{cat.label}</h2>
+				<section class="space-y-4">
+					<SectionHeader title={cat.label}>
+					</SectionHeader>
 					<MediaGrid
 						items={results[cat.key]}
 						layout="row"

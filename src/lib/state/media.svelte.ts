@@ -98,14 +98,14 @@ export function getMediaState() {
 					fields: ['DateCreated'] as ItemFields[]
 				});
 
-				const itemsById = new Map<string, BaseItemDto>();
+				const itemsById: Record<string, BaseItemDto> = {};
 				for (const item of itemsResult.Items ?? []) {
-					if (item.Id) itemsById.set(item.Id, item);
+					if (item.Id) itemsById[item.Id] = item;
 				}
 
 				libraries = viewLibraries.map((lib) => ({
 					...lib,
-					ImageTags: itemsById.get(lib.Id!)?.ImageTags ?? lib.ImageTags
+					ImageTags: itemsById[lib.Id!]?.ImageTags ?? lib.ImageTags
 				}));
 			} catch (e: unknown) {
 				error = (e as Error)?.message ?? 'Failed to load libraries';

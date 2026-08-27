@@ -10,6 +10,64 @@
 	--color-jellyfin-purple-dark: #7c3aed;
 	--color-jellyfin-primary: #00a4dc;
 	--color-jellyfin-secondary: #9b59b6;
+
+	--animate-float-slow: float 14s ease-in-out infinite;
+	--animate-float-slower: float 20s ease-in-out infinite reverse;
+	--animate-fade-in: fade-in 0.5s ease-out both;
+	--animate-fade-up: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+	--animate-ken-burns: ken-burns 18s ease-in-out infinite alternate;
+	--animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+@keyframes float {
+	0%,
+	100% {
+		transform: translate3d(0, 0, 0) scale(1);
+	}
+	33% {
+		transform: translate3d(30px, -40px, 0) scale(1.12);
+	}
+	66% {
+		transform: translate3d(-25px, 25px, 0) scale(0.94);
+	}
+}
+
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes fade-up {
+	from {
+		opacity: 0;
+		transform: translateY(14px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes ken-burns {
+	from {
+		transform: scale(1) translateY(0);
+	}
+	to {
+		transform: scale(1.1) translateY(-1.5%);
+	}
+}
+
+@keyframes shimmer {
+	from {
+		background-position: 200% 0;
+	}
+	to {
+		background-position: -200% 0;
+	}
 }
 
 :root {
@@ -22,16 +80,58 @@
 	--glass-bg-opacity: 0.8;
 	--glass-border-opacity: 0.8;
 	--glass-blur: blur(12px);
+	--surface: hsl(240 6% 9% / 0.72);
+	--surface-border: hsl(240 6% 16% / 0.8);
 }
 
 body {
 	@apply bg-zinc-950 text-zinc-100 antialiased;
+	background-image:
+		radial-gradient(60rem 40rem at 15% -10%, hsl(265 60% 24% / 0.35), transparent),
+		radial-gradient(50rem 36rem at 110% 15%, hsl(199 80% 26% / 0.32), transparent),
+		radial-gradient(70rem 50rem at 50% 120%, hsl(280 55% 18% / 0.3), transparent);
+	background-attachment: fixed;
+}
+
+.dark body,
+body {
+	color-scheme: dark;
 }
 
 .glass {
 	background-color: hsl(240 6% 10% / var(--glass-bg-opacity));
 	border-color: hsl(240 6% 15% / var(--glass-border-opacity));
 	backdrop-filter: var(--glass-blur);
+}
+
+.surface {
+	background-color: var(--surface);
+	border-color: var(--surface-border);
+	backdrop-filter: blur(14px);
+}
+
+.page-enter {
+	animation: fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.text-gradient {
+	background: linear-gradient(100deg, var(--accent-400) 0%, var(--accent-500) 45%, #e2e8f0 100%);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+
+/* Consistent interactive inputs */
+input,
+button,
+select,
+textarea {
+	font: inherit;
+}
+
+::selection {
+	background: var(--accent-600);
+	color: white;
 }
 
 ::-webkit-scrollbar {

@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { getUserImageUrl } from '$lib/jellyfin/client';
+	import BackgroundFX from '$lib/components/ui/BackgroundFX.svelte';
 	import type { Account } from '$lib/state/auth.svelte';
 
 	const auth = getAuth();
@@ -46,7 +47,7 @@
 	}
 
 	function handleSaveName(e: Event) {
-		e.stopPropagation();
+		e.preventDefault();
 		if (!editingId || !editName.trim()) return;
 		auth.updateAccountName(editingId, editName.trim());
 		editingId = null;
@@ -74,40 +75,46 @@
 	<title>Who's Watching? - Jellyfin</title>
 </svelte:head>
 
-<div class="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-4">
-	<h1 class="mb-12 text-3xl font-semibold text-white sm:text-4xl">Who's Watching?</h1>
+<BackgroundFX variant="intense" />
+
+<div class="relative flex min-h-screen flex-col items-center justify-center px-4 py-16">
+	<h1 class="page-enter mb-12 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+		Who's Watching?
+	</h1>
 
 	{#if auth.accounts.length === 0}
-		<div class="text-center">
+		<div class="page-enter text-center">
 			<p class="mb-6 text-zinc-400">No accounts saved.</p>
 			<a
 				href={resolve('/login')}
-				class="inline-flex items-center gap-2 rounded-lg bg-[var(--accent-600)] px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-700)]"
+				class="inline-flex items-center gap-2 rounded-xl bg-[var(--accent-600)] px-6 py-3 text-sm font-medium text-white shadow-lg shadow-black/30 transition-all hover:bg-[var(--accent-700)] hover:shadow-[var(--accent-600)]/25 hover:shadow-lg"
 			>
 				Sign In
 			</a>
 		</div>
 	{:else}
 		<div class="flex flex-wrap items-start justify-center gap-8 sm:gap-10">
-			{#each auth.accounts as account (account.id)}
+			{#each auth.accounts as account, i (account.id)}
 				{@const avatarUrl = getAvatarUrl(account)}
 				{@const isConfirming = confirmDeleteId === account.id}
 				{@const isEditing = editingId === account.id}
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					onclick={() => handleSelect(account.id)}
 					onkeydown={(e) => {
 						if (e.key === 'Enter' || e.key === ' ') handleSelect(account.id);
 					}}
-					class="group flex cursor-pointer flex-col items-center gap-3 outline-none"
+					class="page-enter group flex cursor-pointer flex-col items-center gap-3 outline-none"
+					style="animation-delay: {i * 60}ms"
+					role="button"
+					tabindex="0"
 				>
 					<div class="relative">
 						<div
-							class="h-28 w-28 overflow-hidden rounded-full border-2 transition-all duration-200 sm:h-36 sm:w-36 {isConfirming
+							class="h-28 w-28 overflow-hidden rounded-full border-2 shadow-lg shadow-black/40 transition-all duration-300 sm:h-36 sm:w-36 {isConfirming
 								? 'border-red-500 ring-2 ring-red-500/40'
 								: isEditing
-									? 'border-[var(--accent-500)] ring-2 ring-[var(--accent-500)]/40'
-									: 'border-transparent group-hover:border-white/60 group-hover:shadow-[0_0_30px_rgba(255,255,255,0.15)]'}"
+									? 'border-[var(--accent-500)] ring-2 ring-[var(--accent-ring)]'
+									: 'border-white/10 group-hover:border-white/60 group-hover:shadow-[0_0_40px_rgba(255,255,255,0.15)] group-hover:ring-2 group-hover:ring-[var(--accent-ring)] group-focus-visible:border-white/60'}"
 						>
 							{#if avatarUrl}
 								<img
@@ -118,7 +125,7 @@
 								/>
 							{:else}
 								<div
-									class="flex h-full w-full items-center justify-center bg-purple-700 text-3xl font-bold text-white sm:text-4xl"
+									class="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--accent-500)] to-[var(--accent-700)] text-3xl font-bold text-white sm:text-4xl"
 								>
 									{(isEditing ? editName : account.user.Name)?.[0]?.toUpperCase() ?? '?'}
 								</div>
@@ -200,36 +207,28 @@
 					</div>
 
 					{#if isEditing}
-						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<div
-							role="presentation"
-							onclick={(e) => e.stopPropagation()}
-							onkeydown={(e) => e.stopPropagation()}
-						>
-							<form onsubmit={handleSaveName} class="flex flex-col items-center gap-2">
-								<input
-									type="text"
-									bind:value={editName}
-									class="w-40 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-1.5 text-center text-sm text-white focus:border-[var(--accent-500)] focus:ring-1 focus:ring-[var(--accent-500)] focus:outline-none sm:w-48"
-								/>
-								<div class="flex gap-2">
-									<button
-										type="submit"
-										class="rounded-md bg-[var(--accent-600)] px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-[var(--accent-700)]"
-									>
-										Save
-									</button>
-									<button
-										type="button"
-										onclick={handleCancelEdit}
-										class="rounded-md bg-zinc-700 px-3 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-600"
-									>
-										Cancel
-									</button>
-								</div>
-							</form>
-						</div>
+						<form onsubmit={handleSaveName} class="flex flex-col items-center gap-2">
+							<input
+								type="text"
+								bind:value={editName}
+								class="w-40 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-center text-sm text-white focus:border-[var(--accent-500)] focus:ring-2 focus:ring-[var(--accent-ring)] focus:outline-none sm:w-48"
+							/>
+							<div class="flex gap-2">
+								<button
+									type="submit"
+									class="rounded-lg bg-[var(--accent-600)] px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-[var(--accent-700)]"
+								>
+									Save
+								</button>
+								<button
+									type="button"
+									onclick={handleCancelEdit}
+									class="rounded-lg bg-zinc-700 px-3 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-600"
+								>
+									Cancel
+								</button>
+							</div>
+						</form>
 					{:else}
 						<span
 							class="max-w-[9rem] truncate text-sm font-medium text-zinc-300 transition-colors group-hover:text-white sm:max-w-[10rem]"
@@ -241,14 +240,14 @@
 			{/each}
 
 			<a
-				href={resolve('/login') + '?add=true'}
+				href={resolve('/login?add=true')}
 				class="group flex flex-col items-center gap-3 outline-none"
 			>
 				<div
-					class="flex h-28 w-28 items-center justify-center rounded-full border-2 border-zinc-600 bg-zinc-800/50 transition-all duration-200 group-hover:border-white/60 group-hover:bg-zinc-800 group-hover:shadow-[0_0_30px_rgba(255,255,255,0.15)] sm:h-36 sm:w-36"
+					class="flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-white/20 bg-white/[0.03] transition-all duration-300 group-hover:border-white/50 group-hover:bg-white/[0.08] sm:h-36 sm:w-36"
 				>
 					<svg
-						class="h-12 w-12 text-zinc-400 transition-colors group-hover:text-white sm:h-16 sm:w-16"
+						class="h-12 w-12 text-zinc-400 transition-all duration-300 group-hover:scale-110 group-hover:text-white sm:h-16 sm:w-16"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
