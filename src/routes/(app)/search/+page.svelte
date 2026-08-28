@@ -208,6 +208,7 @@
 				type="text"
 				value={query}
 				oninput={onInput}
+				autofocus
 				placeholder="Search movies, shows, music..."
 				class="w-full rounded-2xl border border-white/10 bg-white/5 py-3.5 pr-24 pl-12 text-zinc-100 shadow-lg shadow-black/20 backdrop-blur-md transition-all duration-200 placeholder:text-zinc-500 focus:border-[var(--accent-500)] focus:bg-white/[0.07] focus:ring-2 focus:ring-[var(--accent-ring)] focus:outline-none"
 			/>

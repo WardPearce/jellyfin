@@ -1,6 +1,8 @@
 import { writable } from '@macfja/svelte-persistent-store';
 import type { UserDto } from '@jellyfin/sdk/lib/generated-client/models/user-dto';
 import { clearApi, getApi, authenticateUser } from '$lib/jellyfin/client';
+import { getUserApi } from '@jellyfin/sdk/lib/utils/api/user-api.js';
+import { getQuickConnectApi } from '@jellyfin/sdk/lib/utils/api/quick-connect-api.js';
 import { getCurrentUser } from '$lib/jellyfin/api';
 import { jellyfinLogin, normalizeSeerrUrl, seerrGetMe, seerrLogout } from '$lib/seerr';
 
@@ -148,6 +150,96 @@ export function getAuthState() {
 				const err = e as { response?: { data?: { message?: string } }; message?: string };
 				error = err?.response?.data?.message ?? err?.message ?? 'Login failed';
 				return false;
+			} finally {
+				isLoading = false;
+			}
+		},
+
+		async initiateQuickConnect(serverUrl: string) {
+			error = null;
+			seerrError = null;
+			try {
+				const api = getApi(serverUrl);
+				const quickConnectApi = getQuickConnectApi(api);
+				const initiate = await quickConnectApi.initiateQuickConnect();
+				const code = initiate.data.Code;
+				const secret = initiate.data.Secret;
+				if (!code || !secret) {
+					error = 'Quick Connect is not available on this server';
+					return { success: false, code: '', secret: '' };
+				}
+				return { success: true, code, secret };
+			} catch (e: unknown) {
+				const err = e as { response?: { data?: { message?: string } }; message?: string };
+				error = err?.response?.data?.message ?? err?.message ?? 'Quick Connect failed';
+				return { success: false, code: '', secret: '' };
+			}
+		},
+
+		async completeQuickConnect(
+			serverUrl: string,
+			secret: string,
+			seerrUrlInput?: string,
+			seerrApiKeyInput?: string
+		) {
+			isLoading = true;
+			error = null;
+			seerrError = null;
+			try {
+				const timeoutMs = 5 * 60 * 1000;
+				const startedAt = Date.now();
+				while (Date.now() - startedAt < timeoutMs) {
+					const api = getApi(serverUrl);
+					const quickConnectApi = getQuickConnectApi(api);
+					const state = await quickConnectApi.getQuickConnectState({ secret });
+					if (state.data.Authenticated) {
+						const userApi = getUserApi(api);
+						const result = await userApi.authenticateWithQuickConnect({
+							quickConnectDto: { Secret: secret }
+						});
+						if (result.data.AccessToken && result.data.User) {
+							const existing = accounts.find(
+								(a) => a.serverUrl === serverUrl && a.user.Id === result.data.User?.Id
+							);
+							if (existing) {
+								existing.accessToken = result.data.AccessToken;
+								existing.user = result.data.User;
+							} else {
+								accounts.push({
+									id: crypto.randomUUID(),
+									serverUrl,
+									accessToken: result.data.AccessToken,
+									user: result.data.User
+								});
+							}
+							const newId = existing?.id ?? accounts[accounts.length - 1].id;
+							activeAccountIdStore.set(newId);
+							persistAccounts();
+							getApi(serverUrl, result.data.AccessToken);
+
+							if (seerrUrlInput?.trim()) {
+								const seerr = normalizeSeerrUrl(seerrUrlInput);
+								await this.connectSeerr(
+									seerr,
+									result.data.User.Name ?? '',
+									'',
+									newId,
+									seerrApiKeyInput
+								);
+							}
+							return { success: true };
+						}
+						error = 'Quick Connect authentication failed';
+						return { success: false };
+					}
+					await new Promise((r) => setTimeout(r, 2000));
+				}
+				error = 'Quick Connect timed out. Please try again.';
+				return { success: false };
+			} catch (e: unknown) {
+				const err = e as { response?: { data?: { message?: string } }; message?: string };
+				error = err?.response?.data?.message ?? err?.message ?? 'Quick Connect failed';
+				return { success: false };
 			} finally {
 				isLoading = false;
 			}
