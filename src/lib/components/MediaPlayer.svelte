@@ -432,11 +432,11 @@
 		--media-menu-top-bar-bg: var(--menu-top-bar-bg);
 		--media-menu-item-hover-bg: rgb(255 255 255 / 0.08);
 		--media-menu-slider-track-fill-bg: var(--accent-600);
-	}
-
-	:global(.vds-menu-items[data-root]) {
-		backdrop-filter: var(--glass-blur, blur(12px)) saturate(160%);
-		-webkit-backdrop-filter: var(--glass-blur, blur(12px)) saturate(160%);
+		/* Idle `will-change` keeps the panel on a permanent compositor layer; when a
+		   submenu opens, its backdrop-filter + the animated height render inside that
+		   layer and Chromium drops painting of the menu items (blank panel). Let the
+		   layer be created on demand instead. */
+		will-change: auto;
 	}
 
 	/* Slider thumb, track sizing and accent colors */
