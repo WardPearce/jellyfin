@@ -144,6 +144,30 @@ textarea {
 	font: inherit;
 }
 
+/* Cursor pointer on all interactive elements when hovered */
+button,
+[role='button'],
+[role='link'],
+a,
+select,
+label,
+summary,
+input[type='checkbox'],
+input[type='radio'],
+input[type='range'],
+input[type='submit'],
+input[type='reset'],
+input[type='button'],
+input[type='file'],
+[role='menuitem'],
+[role='tab'],
+[role='option'],
+[role='switch'],
+[role='slider'],
+details summary {
+	cursor: pointer;
+}
+
 ::selection {
 	background: var(--accent-600);
 	color: white;
