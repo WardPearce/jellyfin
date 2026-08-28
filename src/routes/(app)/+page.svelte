@@ -61,9 +61,6 @@
 			{#if combinedResumeNext.length > 0}
 				<section class="space-y-4">
 					<SectionHeader title="Continue Watching" level="muted">
-						{#snippet action()}
-							<span class="text-xs text-zinc-500">Resume right where you left off</span>
-						{/snippet}
 					</SectionHeader>
 					<MediaGrid
 						items={combinedResumeNext}
@@ -78,9 +75,6 @@
 			{#if media.continueWatching.length > 0}
 				<section class="space-y-4">
 					<SectionHeader title="Continue Watching" level="muted">
-						{#snippet action()}
-							<span class="text-xs text-zinc-500">Resume right where you left off</span>
-						{/snippet}
 					</SectionHeader>
 					<MediaGrid
 						items={media.continueWatching}
