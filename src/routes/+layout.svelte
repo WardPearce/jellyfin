@@ -33,11 +33,29 @@
 	$effect(() => {
 		const root = document.documentElement;
 		const p = settings.palette;
+		const bg = settings.background;
 		root.style.setProperty('--accent-400', p[400]);
 		root.style.setProperty('--accent-500', p[500]);
 		root.style.setProperty('--accent-600', p[600]);
 		root.style.setProperty('--accent-700', p[700]);
 		root.style.setProperty('--accent-ring', p.ring);
+		root.style.setProperty('--surface', bg.surface);
+		root.style.setProperty('--surface-border', bg.surfaceBorder);
+		root.style.setProperty('--glass-bg', bg.glass);
+		root.style.setProperty('--glass-border', bg.glassBorder);
+		root.style.setProperty('--menu-bg', bg.menu);
+		root.style.setProperty('--menu-border', bg.menuBorder);
+		root.style.setProperty('--menu-section-bg', bg.menuSection);
+		root.style.setProperty('--menu-top-bar-bg', bg.menuTopBar);
+		root.style.setProperty('--body-glow-a', bg.bodyGlowA);
+		root.style.setProperty('--body-glow-b', bg.bodyGlowB);
+		root.style.setProperty('--body-glow-c', bg.bodyGlowC);
+		root.style.setProperty('--fx-a-intense', bg.fxIntenseA);
+		root.style.setProperty('--fx-a-subtle', bg.fxSubtleA);
+		root.style.setProperty('--fx-b-intense', bg.fxIntenseB);
+		root.style.setProperty('--fx-b-subtle', bg.fxSubtleB);
+		root.style.setProperty('--fx-c-intense', bg.fxIntenseC);
+		root.style.setProperty('--fx-c-subtle', bg.fxSubtleC);
 
 		if (settings.glass) {
 			root.style.setProperty('--glass-bg-opacity', '0.8');

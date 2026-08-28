@@ -80,16 +80,31 @@
 	--glass-bg-opacity: 0.8;
 	--glass-border-opacity: 0.8;
 	--glass-blur: blur(12px);
-	--surface: hsl(240 6% 9% / 0.72);
-	--surface-border: hsl(240 6% 16% / 0.8);
+	--surface: hsl(234 6% 9% / 0.72);
+	--surface-border: hsl(234 6% 16% / 0.8);
+	--glass-bg: hsl(234 6% 10% / var(--glass-bg-opacity));
+	--glass-border: hsl(234 6% 15% / var(--glass-border-opacity));
+	--menu-bg: hsl(234 6% 10% / var(--glass-bg-opacity, 0.8));
+	--menu-border: 1px solid hsl(234 6% 15% / var(--glass-border-opacity, 0.8));
+	--menu-section-bg: hsl(234 6% 12% / 0.5);
+	--menu-top-bar-bg: hsl(234 6% 14% / 0.5);
+	--body-glow-a: hsl(234 60% 24% / 0.35);
+	--body-glow-b: hsl(164 80% 26% / 0.32);
+	--body-glow-c: hsl(249 55% 18% / 0.3);
+	--fx-a-intense: hsl(234 60% 48% / 0.45);
+	--fx-a-subtle: hsl(234 60% 40% / 0.28);
+	--fx-b-intense: hsl(164 80% 42% / 0.42);
+	--fx-b-subtle: hsl(164 80% 36% / 0.26);
+	--fx-c-intense: hsl(304 60% 44% / 0.35);
+	--fx-c-subtle: hsl(304 55% 34% / 0.22);
 }
 
 body {
 	@apply bg-zinc-950 text-zinc-100 antialiased;
 	background-image:
-		radial-gradient(60rem 40rem at 15% -10%, hsl(265 60% 24% / 0.35), transparent),
-		radial-gradient(50rem 36rem at 110% 15%, hsl(199 80% 26% / 0.32), transparent),
-		radial-gradient(70rem 50rem at 50% 120%, hsl(280 55% 18% / 0.3), transparent);
+		radial-gradient(60rem 40rem at 15% -10%, var(--body-glow-a), transparent),
+		radial-gradient(50rem 36rem at 110% 15%, var(--body-glow-b), transparent),
+		radial-gradient(70rem 50rem at 50% 120%, var(--body-glow-c), transparent);
 	background-attachment: fixed;
 }
 
@@ -99,8 +114,8 @@ body {
 }
 
 .glass {
-	background-color: hsl(240 6% 10% / var(--glass-bg-opacity));
-	border-color: hsl(240 6% 15% / var(--glass-border-opacity));
+	background-color: var(--glass-bg);
+	border-color: var(--glass-border);
 	backdrop-filter: var(--glass-blur);
 }
 

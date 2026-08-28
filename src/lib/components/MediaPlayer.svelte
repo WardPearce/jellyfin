@@ -17,8 +17,12 @@
 	import 'vidstack/player/styles/default/icons.css';
 	import 'vidstack/player/styles/default/layouts/video.css';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
+	import { getSettings } from '$lib/state/index.svelte';
 	import type { MediaPlayerElement } from 'vidstack/elements';
 	import type { ThumbnailSrc } from 'vidstack';
+	import type { MediaSegmentDto } from '@jellyfin/sdk/lib/generated-client/models/media-segment-dto';
+	import { ArrowLeft } from '@lucide/svelte';
 
 	interface SubtitleTrack {
 		src: string;
@@ -29,6 +33,26 @@
 		default?: boolean;
 	}
 
+	interface ActiveSegment {
+		type: string;
+		start: number;
+		end: number;
+		key: string;
+	}
+
+	const SEGMENT_LABELS: Record<string, string> = {
+		Intro: 'intro',
+		Outro: 'credits',
+		Recap: 'recap',
+		Preview: 'preview',
+		Commercial: 'commercial'
+	};
+
+	const SKIPPABLE_SEGMENT_TYPES = new Set(Object.keys(SEGMENT_LABELS));
+	const SKIP_COUNTDOWN_SECONDS = 3;
+
+	const playerSettings = getSettings();
+
 	let {
 		src,
 		poster,
@@ -37,7 +61,11 @@
 		onBack,
 		subtitles = [],
 		thumbnails = null,
-		startTime = 0
+		startTime = 0,
+		segments = [],
+		onStart,
+		onProgress,
+		onEnded
 	}: {
 		src: string;
 		poster?: string;
@@ -47,11 +75,98 @@
 		subtitles?: SubtitleTrack[];
 		thumbnails?: ThumbnailSrc;
 		startTime?: number;
+		segments?: MediaSegmentDto[];
+		onStart?: () => void;
+		onProgress?: (positionSeconds: number, playing: boolean) => void;
+		onEnded?: () => void;
 	} = $props();
+
+	const activeSegments = $derived(
+		(segments ?? [])
+			.map((s) => ({
+				type: s.Type ?? 'Unknown',
+				start: (s.StartTicks ?? 0) / 10_000_000,
+				end: (s.EndTicks ?? 0) / 10_000_000,
+				key: `${s.Id ?? `${s.Type ?? 'Unknown'}:${s.StartTicks ?? 0}`}`
+			}))
+			.filter((s) => SKIPPABLE_SEGMENT_TYPES.has(s.type) && s.end > s.start)
+	);
 
 	let playerEl: HTMLElement | null = $state(null);
 	let headerVisible = $state(true);
 	let posterVisible = $state(true);
+
+	let prompt = $state<ActiveSegment | null>(null);
+	let countdown = $state(0);
+
+	const dismissedSegments: SvelteSet<string> = new SvelteSet();
+	const handledSegments: SvelteSet<string> = new SvelteSet();
+	let lastTime = 0;
+	let hasReportedStart = false;
+	let countdownTimer: ReturnType<typeof setInterval> | null = null;
+
+	function applyStartSeek() {
+		if (!playerEl || !startTime) return;
+		const player = playerEl as unknown as MediaPlayerElement;
+		if (Math.abs(player.currentTime - startTime) > 1) {
+			player.currentTime = startTime;
+			lastTime = startTime;
+		}
+	}
+
+	function clearCountdown() {
+		if (countdownTimer !== null) {
+			clearInterval(countdownTimer);
+			countdownTimer = null;
+		}
+	}
+
+	function skipSegment(segment: ActiveSegment) {
+		const player = playerEl as unknown as MediaPlayerElement | null;
+		if (player) player.currentTime = segment.end;
+		prompt = null;
+		clearCountdown();
+	}
+
+	function dismissSegment() {
+		if (prompt) dismissedSegments.add(prompt.key);
+		prompt = null;
+		clearCountdown();
+	}
+
+	function startPrompt(segment: ActiveSegment) {
+		prompt = segment;
+		countdown = SKIP_COUNTDOWN_SECONDS;
+		clearCountdown();
+		countdownTimer = setInterval(() => {
+			const player = playerEl as unknown as MediaPlayerElement | null;
+			if (!player || player.paused) return;
+			countdown -= 1;
+			if (countdown <= 0) {
+				clearCountdown();
+				skipSegment(segment);
+			}
+		}, 1000);
+	}
+
+	function checkSegmentOverlay(player: MediaPlayerElement) {
+		if (!activeSegments.length) return;
+		const time = player.currentTime;
+		const active = activeSegments.find((s) => time >= s.start && time < s.end);
+		if (active && !handledSegments.has(active.key) && !dismissedSegments.has(active.key)) {
+			const leadIn = Math.min(60, (active.end - active.start) * 0.3);
+			if (
+				!player.paused &&
+				lastTime < active.start &&
+				time >= active.start &&
+				time - active.start < leadIn
+			) {
+				handledSegments.add(active.key);
+				startPrompt(active);
+			}
+		}
+		lastTime = time;
+	}
 
 	onMount(() => {
 		if (!playerEl) return;
@@ -75,16 +190,60 @@
 		// staying visible forever when autoplay is blocked by the browser).
 		const onPlay = () => {
 			posterVisible = false;
+			if (!hasReportedStart) {
+				hasReportedStart = true;
+				onStart?.();
+			}
+		};
+
+		const onTimeUpdate = () => {
+			const player = playerEl as unknown as MediaPlayerElement;
+			onProgress?.(player.currentTime, !player.paused);
+			checkSegmentOverlay(player);
+		};
+
+		const onEndedEvent = () => {
+			const player = playerEl as unknown as MediaPlayerElement;
+			onProgress?.(player.currentTime, false);
+			prompt = null;
+			clearCountdown();
+			onEnded?.();
+		};
+
+		const onVolumeChange = (e: Event) => {
+			const detail = (e as CustomEvent).detail as { volume?: number; muted?: boolean } | null;
+			if (detail && typeof detail.volume === 'number' && playerSettings) {
+				playerSettings.setPlayback({ volume: detail.volume });
+			}
+		};
+
+		const restoreVolume = () => {
+			const player = playerEl as unknown as MediaPlayerElement;
+			const saved = playerSettings?.playback.volume ?? 1;
+			if (typeof player.volume === 'number' && player.volume !== saved) {
+				player.volume = saved;
+			}
 		};
 
 		playerEl.addEventListener('provider-change', onProviderChange);
 		playerEl.addEventListener('controls-change', onControlsChange);
 		playerEl.addEventListener('play', onPlay);
+		playerEl.addEventListener('time-update', onTimeUpdate);
+		playerEl.addEventListener('ended', onEndedEvent);
+		playerEl.addEventListener('volume-change', onVolumeChange);
+		playerEl.addEventListener('loaded-metadata', applyStartSeek);
+		playerEl.addEventListener('loaded-metadata', restoreVolume);
 
 		return () => {
 			playerEl?.removeEventListener('provider-change', onProviderChange);
 			playerEl?.removeEventListener('controls-change', onControlsChange);
 			playerEl?.removeEventListener('play', onPlay);
+			playerEl?.removeEventListener('time-update', onTimeUpdate);
+			playerEl?.removeEventListener('ended', onEndedEvent);
+			playerEl?.removeEventListener('volume-change', onVolumeChange);
+			playerEl?.removeEventListener('loaded-metadata', applyStartSeek);
+			playerEl?.removeEventListener('loaded-metadata', restoreVolume);
+			clearCountdown();
 		};
 	});
 
@@ -108,53 +267,87 @@
 	});
 
 	$effect(() => {
-		if (!playerEl || !startTime) return;
-		(playerEl as unknown as MediaPlayerElement).currentTime = startTime;
+		applyStartSeek();
+	});
+
+	$effect(() => {
+		if (!playerEl) return;
+		const player = playerEl as unknown as MediaPlayerElement;
+		const saved = playerSettings?.playback.volume ?? 1;
+		if (typeof player.volume === 'number' && player.volume !== saved) {
+			player.volume = saved;
+		}
 	});
 </script>
 
-<media-player
-	bind:this={playerEl}
-	{src}
-	{poster}
-	{title}
-	crossorigin
-	playsinline
-	logLevel="error"
-	autoplay
-	class="vds-player aspect-auto h-full w-full"
->
-	<media-provider></media-provider>
-	{#if posterVisible && poster}
-		<media-poster src={poster} alt={title}></media-poster>
-	{/if}
-	<media-captions></media-captions>
-
-	<div class="vds-overlay-header" class:vds-hidden={!headerVisible}>
-		{#if onBack}
-			<button type="button" onclick={onBack} class="vds-overlay-btn" aria-label="Go back">
-				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
-					/>
-				</svg>
-			</button>
+<div class="relative h-full w-full">
+	<media-player
+		bind:this={playerEl}
+		{src}
+		{poster}
+		{title}
+		crossorigin
+		playsinline
+		logLevel="error"
+		autoplay
+		class="vds-player aspect-auto h-full w-full"
+	>
+		<media-provider></media-provider>
+		{#if posterVisible && poster}
+			<media-poster src={poster} alt={title}></media-poster>
 		{/if}
-		{#if title}
-			<div class="vds-overlay-title">
-				<h1 class="text-lg font-semibold text-white drop-shadow-lg">{title}</h1>
-				{#if subtitle}
-					<p class="text-sm text-zinc-300 drop-shadow-lg">{subtitle}</p>
-				{/if}
+		<media-captions class="vds-captions"></media-captions>
+
+		<div class="vds-overlay-header" class:vds-hidden={!headerVisible}>
+			{#if onBack}
+				<button type="button" onclick={onBack} class="vds-overlay-btn" aria-label="Go back">
+					<ArrowLeft class="h-5 w-5" />
+				</button>
+			{/if}
+			{#if title}
+				<div class="vds-overlay-title">
+					<h1 class="text-lg font-semibold text-white drop-shadow-lg">{title}</h1>
+					{#if subtitle}
+						<p class="text-sm text-zinc-300 drop-shadow-lg">{subtitle}</p>
+					{/if}
+				</div>
+			{/if}
+		</div>
+
+		<media-video-layout {thumbnails}></media-video-layout>
+	</media-player>
+
+	{#if prompt}
+		<div
+			class="pointer-events-none absolute inset-x-0 bottom-24 z-40 flex items-end justify-center px-4 sm:justify-end sm:px-8"
+		>
+			<div
+				class="pointer-events-auto flex animate-fade-in items-center gap-3 rounded-2xl border border-white/10 bg-zinc-950/85 p-3 shadow-2xl backdrop-blur-md"
+			>
+				<div class="min-w-0">
+					<p class="text-sm font-semibold text-white">
+						Skip {SEGMENT_LABELS[prompt.type] ?? prompt.type}?
+					</p>
+					<p class="text-xs text-zinc-400">Auto-skipping in {countdown}s</p>
+				</div>
+				<button
+					type="button"
+					onclick={() => prompt && skipSegment(prompt)}
+					class="rounded-xl bg-[var(--accent-600)] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[var(--accent-700)] active:scale-[0.98]"
+				>
+					Skip
+				</button>
+				<button
+					type="button"
+					onclick={dismissSegment}
+					class="rounded-xl border border-zinc-600 px-4 py-2 text-sm font-medium text-zinc-300 transition-all hover:border-zinc-500 hover:text-white active:scale-[0.98]"
+				>
+					Keep watching
+				</button>
 			</div>
-		{/if}
-	</div>
-
-	<media-video-layout {thumbnails}></media-video-layout>
-</media-player>
+		</div>
+	{/if}
+</div>
 
 <style>
 	:global(.vds-overlay-header) {
@@ -228,14 +421,42 @@
 
 	/* -------- Theming overrides for the default layout -------- */
 
-	/* Slider thumb & track sizing */
-	:global(media-player .vds-time-slider) {
+	/* ---------- Frosted-glass panels for the settings/captions menus ---------- */
+	/* Menus are portaled to document.body, so these can't be scoped to media-player */
+	:global(.vds-menu-items) {
+		--media-menu-bg: var(--menu-bg);
+		--media-menu-border: var(--menu-border);
+		--media-menu-border-radius: 12px;
+		--media-menu-box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
+		--media-menu-section-bg: var(--menu-section-bg);
+		--media-menu-top-bar-bg: var(--menu-top-bar-bg);
+		--media-menu-item-hover-bg: rgb(255 255 255 / 0.08);
+		--media-menu-slider-track-fill-bg: var(--accent-600);
+	}
+
+	:global(.vds-menu-items[data-root]) {
+		backdrop-filter: var(--glass-blur, blur(12px)) saturate(160%);
+		-webkit-backdrop-filter: var(--glass-blur, blur(12px)) saturate(160%);
+	}
+
+	/* Slider thumb, track sizing and accent colors */
+	:global(media-player .vds-time-slider),
+	:global(media-player .vds-volume-slider) {
 		--media-slider-track-height: 4px;
+		--media-slider-track-fill-bg: var(--accent-600);
+		--media-slider-track-progress-bg: color-mix(in srgb, var(--accent-600) 40%, transparent);
+		--media-slider-thumb-bg: var(--accent-400);
+		--media-slider-focused-thumb-shadow: 0 0 0 4px var(--accent-ring);
 	}
 
 	:global(media-player .vds-volume-slider) {
-		--media-slider-track-height: 4px;
 		--media-slider-thumb-size: 12px;
+	}
+
+	/* Fill brightens while hovering or dragging */
+	:global(media-player .vds-slider:hover .vds-slider-track-fill),
+	:global(media-player .vds-slider[data-active] .vds-slider-track-fill) {
+		background-color: var(--accent-500);
 	}
 
 	/* Round control buttons */
@@ -267,6 +488,19 @@
 	:global(media-player .vds-poster img),
 	:global(media-player media-poster img) {
 		object-fit: cover;
+	}
+
+	/* Captions must be a full-bleed overlay centered under the video */
+	:global(media-player .vds-captions) {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		margin: 0;
+	}
+
+	:global(media-player .vds-captions [data-part='cue-display']) {
+		text-align: center;
 	}
 
 	/* Bottom scrim gradient */

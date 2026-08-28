@@ -14,6 +14,7 @@ export {
 	getItem,
 	getContinueWatching,
 	getPlaybackInfo,
+	getMediaSegments,
 	reportPlaybackStart,
 	reportPlaybackProgress,
 	reportPlaybackStopped,

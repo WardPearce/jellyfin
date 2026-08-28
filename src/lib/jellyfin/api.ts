@@ -1,6 +1,7 @@
 import { getItemsApi } from '@jellyfin/sdk/lib/utils/api/items-api.js';
 import { getUserViewsApi } from '@jellyfin/sdk/lib/utils/api/user-views-api.js';
 import { getMediaInfoApi } from '@jellyfin/sdk/lib/utils/api/media-info-api.js';
+import { getMediaSegmentsApi } from '@jellyfin/sdk/lib/utils/api/media-segments-api.js';
 import { getPlaystateApi } from '@jellyfin/sdk/lib/utils/api/playstate-api.js';
 import { getUserApi } from '@jellyfin/sdk/lib/utils/api/user-api.js';
 import { getTvShowsApi } from '@jellyfin/sdk/lib/utils/api/tv-shows-api.js';
@@ -63,12 +64,19 @@ const WEB_DEVICE_PROFILE: DeviceProfile = {
 	]
 };
 
-function buildWebPlaybackInfo(_itemId: string): PlaybackInfoDto {
+function buildWebPlaybackInfo(
+	_itemId: string,
+	options: { maxBitrate?: number; directPlay?: boolean; startPositionTicks?: number } = {}
+): PlaybackInfoDto {
 	return {
-		DeviceProfile: WEB_DEVICE_PROFILE,
-		EnableDirectPlay: true,
-		EnableDirectStream: true,
-		EnableTranscoding: true
+		DeviceProfile: {
+			...WEB_DEVICE_PROFILE,
+			MaxStreamingBitrate: options.maxBitrate ?? WEB_DEVICE_PROFILE.MaxStreamingBitrate
+		},
+		EnableDirectPlay: options.directPlay ?? true,
+		EnableDirectStream: options.directPlay ?? true,
+		EnableTranscoding: true,
+		StartTimeTicks: options.startPositionTicks
 	};
 }
 
@@ -169,47 +177,68 @@ export async function getNextUp(userId: string, limit: number = 12) {
 	return result.data;
 }
 
-export async function getPlaybackInfo(itemId: string) {
+export async function getPlaybackInfo(
+	itemId: string,
+	options: { maxBitrate?: number; directPlay?: boolean; startPositionTicks?: number } = {}
+) {
 	const api = getApi();
 	const mediaInfoApi = getMediaInfoApi(api);
 	const result = await mediaInfoApi.getPostedPlaybackInfo({
 		itemId,
-		playbackInfoDto: buildWebPlaybackInfo(itemId)
+		playbackInfoDto: buildWebPlaybackInfo(itemId, options)
 	});
 	return result.data;
 }
 
-export async function reportPlaybackStart(itemId: string) {
+export async function getMediaSegments(itemId: string) {
+	const api = getApi();
+	const mediaSegmentsApi = getMediaSegmentsApi(api);
+	const result = await mediaSegmentsApi.getItemSegments({ itemId });
+	return result.data.Items ?? [];
+}
+
+export async function reportPlaybackStart(itemId: string, playSessionId?: string) {
 	const api = getApi();
 	const playstateApi = getPlaystateApi(api);
 	await playstateApi.reportPlaybackStart({
 		playbackStartInfo: {
 			ItemId: itemId,
 			IsPaused: false,
-			IsMuted: false
+			IsMuted: false,
+			PlaySessionId: playSessionId
 		}
 	});
 }
 
-export async function reportPlaybackProgress(itemId: string, positionTicks: number) {
+export async function reportPlaybackProgress(
+	itemId: string,
+	positionTicks: number,
+	options: { playSessionId?: string; isPaused?: boolean } = {}
+) {
 	const api = getApi();
 	const playstateApi = getPlaystateApi(api);
 	await playstateApi.reportPlaybackProgress({
 		playbackProgressInfo: {
 			ItemId: itemId,
 			PositionTicks: positionTicks,
-			IsPaused: false
+			IsPaused: options.isPaused ?? false,
+			PlaySessionId: options.playSessionId
 		}
 	});
 }
 
-export async function reportPlaybackStopped(itemId: string, positionTicks: number) {
+export async function reportPlaybackStopped(
+	itemId: string,
+	positionTicks: number,
+	playSessionId?: string
+) {
 	const api = getApi();
 	const playstateApi = getPlaystateApi(api);
 	await playstateApi.reportPlaybackStopped({
 		playbackStopInfo: {
 			ItemId: itemId,
-			PositionTicks: positionTicks
+			PositionTicks: positionTicks,
+			PlaySessionId: playSessionId
 		}
 	});
 }
@@ -449,6 +478,7 @@ export function getSubtitleTracks(
 		const codec = stream.Codec?.toLowerCase() ?? '';
 		const type =
 			codec === 'vtt' ? 'vtt' : codec === 'ass' ? 'ass' : codec === 'ssa' ? 'ssa' : 'srt';
+		const isDefault = (stream.IsDefault ?? false) && !tracks.some((t) => t.default);
 
 		tracks.push({
 			src: url,
@@ -456,7 +486,7 @@ export function getSubtitleTracks(
 			language: stream.Language ?? 'und',
 			kind: 'subtitles',
 			type,
-			default: stream.IsDefault ?? false
+			default: isDefault
 		});
 	}
 

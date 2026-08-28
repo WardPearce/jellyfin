@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getAuth, getMedia } from '$lib/state/index.svelte';
+	import { Pencil, Plus, Trash2 } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { getUserImageUrl } from '$lib/jellyfin/client';
@@ -131,80 +132,60 @@
 								</div>
 							{/if}
 						</div>
-
-						{#if !isEditing}
-							<div
-								class="absolute inset-0 flex items-center justify-center gap-2 rounded-full bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-							>
-								{#if isConfirming}
-									<button
-										type="button"
-										onclick={(e) => handleDelete(e, account.id)}
-										class="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 text-white transition-colors hover:bg-red-500"
-										title="Confirm delete"
-									>
-										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M4.5 12.75l6 6 9-13.5"
-											/>
-										</svg>
-									</button>
-									<button
-										type="button"
-										onclick={(e) => {
-											e.stopPropagation();
-											confirmDeleteId = null;
-										}}
-										class="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-600 text-white transition-colors hover:bg-zinc-500"
-										title="Cancel"
-									>
-										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M6 18L18 6M6 6l12 12"
-											/>
-										</svg>
-									</button>
-								{:else}
-									<button
-										type="button"
-										onclick={(e) => handleEdit(e, account.id)}
-										class="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm transition-colors hover:bg-white/30"
-										title="Edit profile"
-									>
-										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
-											/>
-										</svg>
-									</button>
-									<button
-										type="button"
-										onclick={(e) => handleDelete(e, account.id)}
-										class="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm transition-colors hover:bg-red-600/80"
-										title="Delete profile"
-									>
-										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-											/>
-										</svg>
-									</button>
-								{/if}
-							</div>
-						{/if}
 					</div>
+
+					{#if !isEditing}
+						<span
+							class="max-w-[9rem] truncate text-sm font-medium text-zinc-300 transition-colors group-hover:text-white sm:max-w-[10rem]"
+						>
+							{account.user.Name ?? 'Unknown'}
+						</span>
+					{/if}
+
+					{#if !isEditing && !isConfirming}
+						<div
+							class="flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+						>
+							<button
+								type="button"
+								onclick={(e) => handleEdit(e, account.id)}
+								class="flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-white/20"
+								title="Edit profile"
+							>
+								<Pencil class="h-3.5 w-3.5" />
+								Edit
+							</button>
+							<button
+								type="button"
+								onclick={(e) => handleDelete(e, account.id)}
+								class="flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-red-600/80"
+								title="Delete profile"
+							>
+								<Trash2 class="h-3.5 w-3.5" />
+								Delete
+							</button>
+						</div>
+					{:else if isConfirming}
+						<div class="flex items-center gap-2">
+							<button
+								type="button"
+								onclick={(e) => handleDelete(e, account.id)}
+								class="rounded-lg bg-red-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-red-500"
+							>
+								Confirm
+							</button>
+							<button
+								type="button"
+								onclick={(e) => {
+									e.stopPropagation();
+									confirmDeleteId = null;
+								}}
+								class="rounded-lg bg-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-600"
+							>
+								Cancel
+							</button>
+						</div>
+					{/if}
 
 					{#if isEditing}
 						<form onsubmit={handleSaveName} class="flex flex-col items-center gap-2">
@@ -229,12 +210,6 @@
 								</button>
 							</div>
 						</form>
-					{:else}
-						<span
-							class="max-w-[9rem] truncate text-sm font-medium text-zinc-300 transition-colors group-hover:text-white sm:max-w-[10rem]"
-						>
-							{account.user.Name ?? 'Unknown'}
-						</span>
 					{/if}
 				</div>
 			{/each}
@@ -246,19 +221,10 @@
 				<div
 					class="flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-white/20 bg-white/[0.03] transition-all duration-300 group-hover:border-white/50 group-hover:bg-white/[0.08] sm:h-36 sm:w-36"
 				>
-					<svg
+					<Plus
 						class="h-12 w-12 text-zinc-400 transition-all duration-300 group-hover:scale-110 group-hover:text-white sm:h-16 sm:w-16"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="1.5"
-							d="M12 4.5v15m7.5-7.5h-15"
-						/>
-					</svg>
+						strokeWidth={1.5}
+					/>
 				</div>
 				<span class="text-sm font-medium text-zinc-500 transition-colors group-hover:text-white">
 					Add Account

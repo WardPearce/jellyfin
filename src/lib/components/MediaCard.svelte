@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Play, Star } from '@lucide/svelte';
 	import type { BaseItemDto } from '@jellyfin/sdk/lib/generated-client/models/base-item-dto';
 	import Image from '$lib/components/ui/Image.svelte';
 	import Progress from '$lib/components/ui/Progress.svelte';
@@ -57,8 +58,8 @@
 >
 	<div
 		class="relative overflow-hidden transition-all duration-300 {isCompact
-			? ''
-			: 'rounded-xl bg-gradient-to-b from-zinc-800 to-zinc-900 shadow-lg shadow-black/30'}"
+			? 'rounded-2xl'
+			: 'rounded-2xl bg-gradient-to-b from-zinc-800 to-zinc-900 shadow-lg shadow-black/30'}"
 	>
 		<Image
 			src={libItem.primaryImageUrl}
@@ -74,9 +75,7 @@
 			<span
 				class="flex h-12 w-12 scale-75 items-center justify-center rounded-full bg-[var(--accent-600)] text-white shadow-xl shadow-black/50 transition-transform duration-300 group-hover:scale-100"
 			>
-				<svg class="h-6 w-6 translate-x-0.5" fill="currentColor" viewBox="0 0 20 20">
-					<path d="M6 4.5v11l9-5.5-9-5.5z" />
-				</svg>
+				<Play class="h-6 w-6 translate-x-0.5" fill="currentColor" />
 			</span>
 		</div>
 
@@ -88,7 +87,7 @@
 
 		{#if libItem.officialRating}
 			<span
-				class="absolute top-1.5 right-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm"
+				class="absolute top-2 right-2 rounded-full border border-white/15 bg-zinc-950/70 px-2 py-0.5 text-[11px] font-semibold tracking-wider text-white/90 backdrop-blur-md"
 			>
 				{libItem.officialRating}
 			</span>
@@ -96,20 +95,16 @@
 
 		{#if libItem.communityRating}
 			<span
-				class="absolute top-1.5 left-1.5 flex items-center gap-0.5 rounded-md bg-black/70 px-1.5 py-0.5 text-xs text-amber-400 backdrop-blur-sm"
+				class="absolute top-2 left-2 flex items-center gap-1 rounded-full border border-white/15 bg-zinc-950/70 px-2 py-0.5 text-[11px] font-medium text-amber-400 backdrop-blur-md"
 			>
-				<svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-					<path
-						d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-					/>
-				</svg>
+				<Star class="h-3 w-3" fill="currentColor" />
 				{libItem.communityRating.toFixed(1)}
 			</span>
 		{/if}
 
 		{#if libItem.type === 'Series'}
 			<div
-				class="absolute right-1.5 bottom-1.5 rounded-md bg-[var(--accent-600)] px-1.5 py-0.5 text-xs font-medium text-white shadow-lg shadow-black/30"
+				class="absolute right-2 bottom-2 rounded-full bg-[var(--accent-600)] px-2 py-0.5 text-[11px] font-medium text-white shadow-lg shadow-black/30"
 			>
 				Series
 			</div>

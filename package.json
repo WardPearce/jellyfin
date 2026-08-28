@@ -13,7 +13,8 @@
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"test:unit": "vitest",
-		"test": "npm run test:unit -- --run"
+		"test": "npm run test:unit -- --run",
+		"generate:seerr": "openapi-typescript specs/seerr-api.yml -o src/lib/seerr/generated-api.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
@@ -44,9 +45,12 @@
 	},
 	"dependencies": {
 		"@jellyfin/sdk": "^0.13.0",
+		"@lucide/svelte": "^1.34.0",
 		"@macfja/svelte-persistent-store": "^2.4.2",
 		"bits-ui": "^2.19.0",
 		"hls.js": "^1.7.1",
+		"iso-639-1": "^3.1.6",
+		"openapi-typescript": "^7.13.0",
 		"svelte-infinite": "^0.5.2",
 		"vidstack": "^1.15.6"
 	}

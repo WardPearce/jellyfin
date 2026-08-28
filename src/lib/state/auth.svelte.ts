@@ -2,12 +2,15 @@ import { writable } from '@macfja/svelte-persistent-store';
 import type { UserDto } from '@jellyfin/sdk/lib/generated-client/models/user-dto';
 import { clearApi, getApi, authenticateUser } from '$lib/jellyfin/client';
 import { getCurrentUser } from '$lib/jellyfin/api';
+import { jellyfinLogin, normalizeSeerrUrl, seerrGetMe, seerrLogout } from '$lib/seerr';
 
 export interface Account {
 	id: string;
 	serverUrl: string;
 	accessToken: string;
 	user: UserDto;
+	seerrUrl?: string;
+	seerrApiKey?: string;
 }
 
 // Persistent stores
@@ -24,7 +27,11 @@ let error = $state<string | null>(null);
 let serverUrl = $state('');
 let accessToken = $state('');
 let user = $state<UserDto | null>(null);
+let seerrUrl = $state('');
+let seerrApiKey = $state('');
+let seerrError = $state<string | null>(null);
 const isAuthenticated = $derived(!!accessToken && !!user);
+const isSeerrConnected = $derived(!!seerrUrl);
 
 // Sync stores to runes
 accountsStore.subscribe((v) => {
@@ -41,6 +48,8 @@ function syncActiveAccount() {
 	serverUrl = acct?.serverUrl ?? '';
 	accessToken = acct?.accessToken ?? '';
 	user = acct?.user ?? null;
+	seerrUrl = acct?.seerrUrl ?? '';
+	seerrApiKey = acct?.seerrApiKey ?? '';
 }
 
 function persistAccounts() {
@@ -64,6 +73,18 @@ export function getAuthState() {
 		get isAuthenticated() {
 			return isAuthenticated;
 		},
+		get isSeerrConnected() {
+			return isSeerrConnected;
+		},
+		get seerrUrl() {
+			return seerrUrl;
+		},
+		get seerrApiKey() {
+			return seerrApiKey;
+		},
+		get seerrError() {
+			return seerrError;
+		},
 		get isLoading() {
 			return isLoading;
 		},
@@ -81,9 +102,16 @@ export function getAuthState() {
 			return accounts.find((a) => a.id === id);
 		},
 
-		async login(url: string, username: string, password: string) {
+		async login(
+			url: string,
+			username: string,
+			password: string,
+			seerrUrlInput?: string,
+			seerrApiKeyInput?: string
+		) {
 			isLoading = true;
 			error = null;
+			seerrError = null;
 			try {
 				const result = await authenticateUser(url, username, password);
 				if (result.AccessToken && result.User) {
@@ -106,6 +134,12 @@ export function getAuthState() {
 					activeAccountIdStore.set(newId);
 					persistAccounts();
 					getApi(url, result.AccessToken);
+
+					if (seerrUrlInput?.trim()) {
+						const seerr = normalizeSeerrUrl(seerrUrlInput);
+						await this.connectSeerr(seerr, username, password, newId, seerrApiKeyInput);
+					}
+
 					return true;
 				}
 				error = 'Authentication failed';
@@ -119,11 +153,59 @@ export function getAuthState() {
 			}
 		},
 
+		async connectSeerr(
+			baseUrl: string,
+			username: string,
+			password: string,
+			accountId?: string,
+			apiKeyInput?: string
+		) {
+			const acct = accountId
+				? accounts.find((a) => a.id === accountId)
+				: activeAccountId
+					? accounts.find((a) => a.id === activeAccountId)
+					: undefined;
+			if (!acct) return;
+
+			const apiKey = apiKeyInput?.trim() || undefined;
+
+			try {
+				if (apiKey) {
+					await seerrGetMe(baseUrl, apiKey);
+					acct.seerrApiKey = apiKey;
+					acct.seerrUrl = baseUrl;
+				} else {
+					await jellyfinLogin(baseUrl, username, password);
+					delete acct.seerrApiKey;
+					acct.seerrUrl = baseUrl;
+				}
+				seerrError = null;
+			} catch (e: unknown) {
+				if (apiKey && acct.seerrApiKey !== apiKey) delete acct.seerrApiKey;
+				acct.seerrUrl = baseUrl;
+				const err = e as { status?: number; message?: string };
+				seerrError =
+					err.status === 401
+						? apiKey
+							? 'Seerr API key is invalid. Check the key in Seerr settings.'
+							: 'Seerr sign-in failed. Check the Seerr URL and try again.'
+						: (err.message ?? 'Unable to connect to Seerr');
+			}
+			persistAccounts();
+			syncActiveAccount();
+		},
+
 		logout() {
+			if (seerrUrl) {
+				seerrLogout(seerrUrl, seerrApiKey).catch(() => {});
+			}
 			activeAccountIdStore.set(null);
 			serverUrl = '';
 			accessToken = '';
 			user = null;
+			seerrUrl = '';
+			seerrApiKey = '';
+			seerrError = null;
 			error = null;
 			clearApi();
 		},

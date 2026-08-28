@@ -1,5 +1,32 @@
 import { writable } from '@macfja/svelte-persistent-store';
 
+export type PlaybackQuality = 'auto' | '4320' | '2160' | '1440' | '1080' | '720' | '480' | '360';
+
+export type SubtitleMode = 'none' | 'foreign' | 'always';
+
+export interface PlaybackPreferences {
+	quality: PlaybackQuality;
+	subtitleMode: SubtitleMode;
+	subtitleLanguage: string;
+	audioLanguage: string;
+	autoPlayNext: boolean;
+	resume: boolean;
+	volume: number;
+}
+
+export interface HomePreferences {
+	combineResumeNext: boolean;
+}
+
+export type GridDensity = 'compact' | 'cozy' | 'comfortable';
+
+export type BrowseLayout = 'grid' | 'list';
+
+export interface PosterPreferences {
+	density: GridDensity;
+	layout: BrowseLayout;
+}
+
 export type AccentColor =
 	| 'indigo'
 	| 'purple'
@@ -20,6 +47,31 @@ export interface AccentPalette {
 	700: string;
 	ring: string;
 	swatch: string;
+}
+
+export interface BackgroundPalette {
+	surface: string;
+	surfaceBorder: string;
+	glass: string;
+	glassBorder: string;
+	menu: string;
+	menuBorder: string;
+	menuSection: string;
+	menuTopBar: string;
+	bodyGlowA: string;
+	bodyGlowB: string;
+	bodyGlowC: string;
+	fxIntenseA: string;
+	fxSubtleA: string;
+	fxIntenseB: string;
+	fxSubtleB: string;
+	fxIntenseC: string;
+	fxSubtleC: string;
+}
+
+function hueOf(color: string): number {
+	const match = /^hsl\((\d+)/.exec(color);
+	return match ? Number(match[1]) : 234;
 }
 
 const ACCENT_PALETTES: Record<AccentColor, AccentPalette> = {
@@ -130,13 +182,72 @@ export const accentColors: AccentColor[] = [
 const accentStore = writable<AccentColor>('jellyfin_accent', 'indigo');
 const glassStore = writable<boolean>('jellyfin_glass', true);
 
+const homeStore = writable<HomePreferences>('jellyfin_home', {
+	combineResumeNext: false
+});
+
+const playbackStore = writable<PlaybackPreferences>('jellyfin_playback', {
+	quality: 'auto',
+	subtitleMode: 'foreign',
+	subtitleLanguage: 'default',
+	audioLanguage: 'default',
+	autoPlayNext: true,
+	resume: true,
+	volume: 1
+});
+
+const posterStore = writable<PosterPreferences>('jellyfin_poster', {
+	density: 'compact',
+	layout: 'grid'
+});
+
 let accent = $state<AccentColor>('indigo');
 let glass = $state<boolean>(true);
+let home = $state<HomePreferences>({ combineResumeNext: false });
+let playback = $state<PlaybackPreferences>({
+	quality: 'auto',
+	subtitleMode: 'foreign',
+	subtitleLanguage: 'default',
+	audioLanguage: 'default',
+	autoPlayNext: true,
+	resume: true,
+	volume: 1
+});
+let poster = $state<PosterPreferences>({ density: 'compact', layout: 'grid' });
 
 accentStore.subscribe((v) => (accent = v));
 glassStore.subscribe((v) => (glass = v));
+homeStore.subscribe((v) => (home = v));
+playbackStore.subscribe((v) => (playback = v));
+posterStore.subscribe((v) => (poster = v));
 
 const palette = $derived(ACCENT_PALETTES[accent]);
+
+const background = $derived.by<BackgroundPalette>(() => {
+	const h = hueOf(palette[400]);
+	const companion = (h - 70 + 360) % 360;
+	const highlight = (h + 15) % 360;
+	const warm = (h + 70) % 360;
+	return {
+		surface: `hsl(${h} 6% 9% / 0.72)`,
+		surfaceBorder: `hsl(${h} 6% 16% / 0.8)`,
+		glass: `hsl(${h} 6% 10% / var(--glass-bg-opacity))`,
+		glassBorder: `hsl(${h} 6% 15% / var(--glass-border-opacity))`,
+		menu: `hsl(${h} 6% 10% / var(--glass-bg-opacity, 0.8))`,
+		menuBorder: `1px solid hsl(${h} 6% 15% / var(--glass-border-opacity, 0.8))`,
+		menuSection: `hsl(${h} 6% 12% / 0.5)`,
+		menuTopBar: `hsl(${h} 6% 14% / 0.5)`,
+		bodyGlowA: `hsl(${h} 60% 24% / 0.35)`,
+		bodyGlowB: `hsl(${companion} 80% 26% / 0.32)`,
+		bodyGlowC: `hsl(${highlight} 55% 18% / 0.3)`,
+		fxIntenseA: `hsl(${h} 60% 48% / 0.45)`,
+		fxSubtleA: `hsl(${h} 60% 40% / 0.28)`,
+		fxIntenseB: `hsl(${companion} 80% 42% / 0.42)`,
+		fxSubtleB: `hsl(${companion} 80% 36% / 0.26)`,
+		fxIntenseC: `hsl(${warm} 60% 44% / 0.35)`,
+		fxSubtleC: `hsl(${warm} 55% 34% / 0.22)`
+	};
+});
 
 export function getSettingsState() {
 	return {
@@ -149,6 +260,18 @@ export function getSettingsState() {
 		get palette() {
 			return palette;
 		},
+		get background() {
+			return background;
+		},
+		get home() {
+			return home;
+		},
+		get playback() {
+			return playback;
+		},
+		get poster() {
+			return poster;
+		},
 		getPalette(color: AccentColor) {
 			return ACCENT_PALETTES[color];
 		},
@@ -157,6 +280,15 @@ export function getSettingsState() {
 		},
 		toggleGlass() {
 			glassStore.set(!glass);
+		},
+		setHome(patch: Partial<HomePreferences>) {
+			homeStore.set({ ...home, ...patch });
+		},
+		setPlayback(patch: Partial<PlaybackPreferences>) {
+			playbackStore.set({ ...playback, ...patch });
+		},
+		setPoster(patch: Partial<PosterPreferences>) {
+			posterStore.set({ ...poster, ...patch });
 		}
 	};
 }

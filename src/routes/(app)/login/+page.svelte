@@ -6,6 +6,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import TextInput from '$lib/components/ui/TextInput.svelte';
 	import BackgroundFX from '$lib/components/ui/BackgroundFX.svelte';
+	import { ArrowLeft, Eye, EyeOff, LoaderCircle, Play } from '@lucide/svelte';
 
 	const auth = getAuth();
 	const media = getMedia();
@@ -13,6 +14,8 @@
 	let serverUrl = $state('');
 	let username = $state('');
 	let password = $state('');
+	let seerrUrl = $state('');
+	let seerrApiKey = $state('');
 	let loading = $state(false);
 	let errorMsg = $state('');
 	let showPassword = $state(false);
@@ -29,7 +32,7 @@
 		loading = true;
 		errorMsg = '';
 
-		const success = await auth.login(serverUrl, username, password);
+		const success = await auth.login(serverUrl, username, password, seerrUrl, seerrApiKey);
 		if (success) {
 			if (auth.user?.Id) {
 				await media.loadLibraries(auth.user.Id);
@@ -65,9 +68,7 @@
 					<div
 						class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--accent-500)] to-[var(--accent-700)] shadow-lg shadow-black/40"
 					>
-						<svg class="h-9 w-9 text-white" fill="currentColor" viewBox="0 0 24 24">
-							<path d="M8 5v14l11-7-11-7z" fill-rule="evenodd" clip-rule="evenodd" />
-						</svg>
+						<Play class="h-9 w-9 text-white" fill="currentColor" />
 					</div>
 				</div>
 				<h1 class="text-2xl font-bold tracking-tight text-white">
@@ -124,32 +125,37 @@
 							class="absolute right-3 bottom-2.5 text-zinc-500 transition-colors hover:text-zinc-200 focus-visible:text-zinc-200 focus-visible:outline-none"
 						>
 							{#if showPassword}
-								<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
-									/>
-								</svg>
+								<EyeOff class="h-5 w-5" />
 							{:else}
-								<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
-									/>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-									/>
-								</svg>
+								<Eye class="h-5 w-5" />
 							{/if}
 						</button>
 					{/if}
+				</div>
+				<div class="space-y-1.5">
+					<TextInput
+						id="seerrUrl"
+						label="Seerr URL (optional)"
+						type="url"
+						bind:value={seerrUrl}
+						placeholder="http://localhost:5055"
+						autoComplete="url"
+					/>
+					<p class="text-xs text-zinc-500">
+						Enables requesting movies and shows from search. Uses your Jellyfin login above.
+					</p>
+				</div>
+
+				<div class="space-y-1.5">
+					<TextInput
+						id="seerrApiKey"
+						label="Seerr API Key (optional)"
+						type="text"
+						bind:value={seerrApiKey}
+						placeholder="Seerr Settings → Main → API Key"
+						autoComplete="off"
+					/>
+					<p class="text-xs text-zinc-500">Required for Seerr support</p>
 				</div>
 
 				<Button
@@ -160,21 +166,7 @@
 				>
 					{#if loading}
 						<span class="inline-flex items-center gap-2">
-							<svg class="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-								<circle
-									class="opacity-25"
-									cx="12"
-									cy="12"
-									r="10"
-									stroke="currentColor"
-									stroke-width="4"
-								></circle>
-								<path
-									class="opacity-75"
-									fill="currentColor"
-									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-								></path>
-							</svg>
+							<LoaderCircle class="h-5 w-5 animate-spin" />
 							Signing in...
 						</span>
 					{:else}
@@ -190,22 +182,10 @@
 						class="text-xs text-zinc-400 transition-colors hover:text-white"
 					>
 						<span class="inline-flex items-center gap-1.5">
-							<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
-								/>
-							</svg>
+							<ArrowLeft class="h-3.5 w-3.5" />
 							Back to Accounts
 						</span>
 					</a>
-				{:else}
-					<p class="inline-flex items-center gap-1.5 text-xs text-zinc-500">
-						<span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-						Connected to Jellyfin server
-					</p>
 				{/if}
 			</div>
 		</div>
